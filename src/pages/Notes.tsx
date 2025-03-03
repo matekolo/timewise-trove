@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Search, Plus, MoreHorizontal, Trash2, Edit } from "lucide-react";
 import Tile from "@/components/ui/Tile";
@@ -10,13 +10,16 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Note {
-  id: number;
+  id: string;
   title: string;
   content: string;
   color: string;
-  date: string;
+  created_at: string;
+  user_id: string;
 }
 
 const Notes = () => {
@@ -28,31 +31,7 @@ const Notes = () => {
     "bg-pink-100",
   ];
   
-  const [notes, setNotes] = useState<Note[]>([
-    {
-      id: 1,
-      title: "Meeting notes",
-      content: "Discuss the new project timeline with the team. Remember to bring up the budget concerns.",
-      color: "bg-blue-100",
-      date: "2023-05-15",
-    },
-    {
-      id: 2,
-      title: "Ideas for the presentation",
-      content: "- Start with company vision\n- Show growth metrics\n- End with future roadmap",
-      color: "bg-yellow-100",
-      date: "2023-05-12",
-    },
-    {
-      id: 3,
-      title: "Books to read",
-      content: "1. Atomic Habits\n2. Deep Work\n3. The Psychology of Money",
-      color: "bg-green-100",
-      date: "2023-05-10",
-    },
-  ]);
-  
-  const [newNote, setNewNote] = useState<Omit<Note, "id" | "date">>({
+  const [newNote, setNewNote] = useState<Omit<Note, "id" | "created_at" | "user_id">>({
     title: "",
     content: "",
     color: colors[0],
@@ -61,13 +40,136 @@ const Notes = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  
+  // Fetch notes from Supabase
+  const fetchNotes = async (): Promise<Note[]> => {
+    const { data, error } = await supabase
+      .from("notes")
+      .select("*")
+      .order("created_at", { ascending: false });
+    
+    if (error) {
+      console.error("Error fetching notes:", error);
+      throw error;
+    }
+    
+    return data || [];
+  };
+  
+  const { data: notes = [], isLoading, error } = useQuery({
+    queryKey: ["notes"],
+    queryFn: fetchNotes,
+  });
+  
+  // Add a new note
+  const addNoteMutation = useMutation({
+    mutationFn: async (note: Omit<Note, "id" | "created_at" | "user_id">) => {
+      const { data, error } = await supabase
+        .from("notes")
+        .insert([note])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      resetForm();
+      setIsDialogOpen(false);
+      
+      toast({
+        title: "Note added",
+        description: "Your note has been saved.",
+      });
+    },
+    onError: (error) => {
+      console.error("Error adding note:", error);
+      toast({
+        title: "Error adding note",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Update a note
+  const updateNoteMutation = useMutation({
+    mutationFn: async ({ id, note }: { id: string; note: Omit<Note, "id" | "created_at" | "user_id"> }) => {
+      const { data, error } = await supabase
+        .from("notes")
+        .update(note)
+        .eq("id", id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      resetForm();
+      setIsDialogOpen(false);
+      
+      toast({
+        title: "Note updated",
+        description: "Your note has been updated.",
+      });
+    },
+    onError: (error) => {
+      console.error("Error updating note:", error);
+      toast({
+        title: "Error updating note",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Delete a note
+  const deleteNoteMutation = useMutation({
+    mutationFn: async (noteId: string) => {
+      const { error } = await supabase
+        .from("notes")
+        .delete()
+        .eq("id", noteId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      toast({
+        title: "Note deleted",
+        description: "Your note has been deleted.",
+      });
+    },
+    onError: (error) => {
+      console.error("Error deleting note:", error);
+      toast({
+        title: "Error deleting note",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
   
   const filteredNotes = notes.filter(
     (note) =>
       note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       note.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  
+  const resetForm = () => {
+    setNewNote({
+      title: "",
+      content: "",
+      color: colors[0],
+    });
+    setIsEditMode(false);
+    setEditId(null);
+  };
   
   const addOrUpdateNote = () => {
     if (newNote.title.trim() === "") {
@@ -80,56 +182,18 @@ const Notes = () => {
     
     if (isEditMode && editId !== null) {
       // Update existing note
-      setNotes(
-        notes.map((note) =>
-          note.id === editId
-            ? {
-                ...note,
-                title: newNote.title,
-                content: newNote.content,
-                color: newNote.color,
-              }
-            : note
-        )
-      );
-      
-      toast({
-        title: "Note updated",
-        description: "Your note has been updated.",
+      updateNoteMutation.mutate({
+        id: editId,
+        note: newNote,
       });
     } else {
       // Add new note
-      const note: Note = {
-        id: Date.now(),
-        ...newNote,
-        date: new Date().toISOString().split("T")[0],
-      };
-      
-      setNotes([note, ...notes]);
-      
-      toast({
-        title: "Note added",
-        description: "Your note has been saved.",
-      });
+      addNoteMutation.mutate(newNote);
     }
-    
-    // Reset form
-    setNewNote({
-      title: "",
-      content: "",
-      color: colors[0],
-    });
-    setIsDialogOpen(false);
-    setIsEditMode(false);
-    setEditId(null);
   };
   
-  const deleteNote = (noteId: number) => {
-    setNotes(notes.filter((note) => note.id !== noteId));
-    toast({
-      title: "Note deleted",
-      description: "Your note has been deleted.",
-    });
+  const deleteNote = (noteId: string) => {
+    deleteNoteMutation.mutate(noteId);
   };
   
   const editNote = (note: Note) => {
@@ -143,6 +207,26 @@ const Notes = () => {
     setIsDialogOpen(true);
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <svg className="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <h3 className="text-lg font-medium text-red-600">Error loading notes</h3>
+        <p className="text-muted-foreground mt-1">Please try again later</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -155,7 +239,10 @@ const Notes = () => {
           <p className="text-muted-foreground">Capture your thoughts and ideas</p>
         </motion.div>
         
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) resetForm();
+        }}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
@@ -214,19 +301,19 @@ const Notes = () => {
             </div>
             
             <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setIsDialogOpen(false);
-                setIsEditMode(false);
-                setEditId(null);
-                setNewNote({
-                  title: "",
-                  content: "",
-                  color: colors[0],
-                });
-              }}>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsDialogOpen(false);
+                  resetForm();
+                }}
+              >
                 Cancel
               </Button>
-              <Button onClick={addOrUpdateNote}>
+              <Button 
+                onClick={addOrUpdateNote}
+                disabled={addNoteMutation.isPending || updateNoteMutation.isPending}
+              >
                 {isEditMode ? "Update Note" : "Add Note"}
               </Button>
             </DialogFooter>
@@ -289,7 +376,7 @@ const Notes = () => {
                 </div>
                 
                 <div className="mt-4 pt-2 border-t border-black/5 text-xs text-gray-500">
-                  {new Date(note.date).toLocaleDateString()}
+                  {new Date(note.created_at).toLocaleDateString()}
                 </div>
               </div>
             </Tile>
