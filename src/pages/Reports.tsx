@@ -401,23 +401,14 @@ const Reports = () => {
         </Tile>
       </div>
       
-      <div className="mt-8 text-center">
-        <h3 className="text-lg font-medium text-gray-700">Achievements</h3>
-        <p className="text-muted-foreground mt-1 mb-4">Start building habits to unlock achievements</p>
-        
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-          {["Early Bird", "Focus Master", "Task Champion", "Streak Master", "Zen Mind"].map((achievement, index) => (
-            <div
-              key={index}
-              className="flex flex-col items-center p-3 border rounded-md opacity-40 hover:opacity-60 transition-opacity"
-            >
-              <div className="w-12 h-12 bg-gray-200 rounded-full mb-2 flex items-center justify-center">
-                <span className="text-xl">🔒</span>
-              </div>
-              <span className="text-xs text-center">{achievement}</span>
-            </div>
-          ))}
-        </div>
+      <div className="flex justify-center mt-4">
+        <Button 
+          onClick={() => navigate("/achievements")} 
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          View Achievements
+        </Button>
       </div>
     </div>
   );
