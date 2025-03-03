@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import axios from 'axios';
+import { useToast } from '@/hooks/use-toast';
 
 interface WeatherData {
   location: string;
@@ -16,36 +18,90 @@ const WeatherWidget = () => {
   const [time, setTime] = useState(new Date());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [locationInput, setLocationInput] = useState('');
+  const [loading, setLoading] = useState(false);
   const [weather, setWeather] = useState<WeatherData>({
-    location: localStorage.getItem('weather-location') || 'New York',
+    location: localStorage.getItem('weather-location') || 'Gdańsk',
     condition: 'sunny',
-    temperature: 22
+    temperature: 0
   });
   
+  const { toast } = useToast();
+
   // Update time every minute
   useEffect(() => {
     const timer = setInterval(() => {
       setTime(new Date());
     }, 60000);
     
-    // For demo purposes, randomly change weather condition
-    const weatherTimer = setInterval(() => {
-      const conditions: Array<'sunny' | 'cloudy' | 'rainy' | 'night'> = ['sunny', 'cloudy', 'rainy', 'night'];
-      const randomCondition = conditions[Math.floor(Math.random() * conditions.length)];
-      const randomTemp = Math.floor(Math.random() * 15) + 15; // Temperature between 15-30
-      
-      setWeather(prev => ({
-        ...prev,
-        condition: randomCondition,
-        temperature: randomTemp
-      }));
-    }, 30000);
-    
     return () => {
       clearInterval(timer);
-      clearInterval(weatherTimer);
     };
   }, []);
+
+  // Fetch weather data when location changes or component mounts
+  useEffect(() => {
+    fetchWeatherData(weather.location);
+  }, []);
+  
+  const fetchWeatherData = async (location: string) => {
+    if (!location) return;
+    
+    setLoading(true);
+    try {
+      const API_KEY = 'bf2b389dca6cf193d644f1df78e7df5e'; // Free API key for OpenWeatherMap
+      const response = await axios.get(`https://api.openweathermap.org/data/2.5/weather`, {
+        params: {
+          q: location,
+          appid: API_KEY,
+          units: 'metric' // For temperature in Celsius
+        }
+      });
+      
+      if (response.data) {
+        const data = response.data;
+        const weatherId = data.weather[0].id;
+        const isNight = !isDay(data.sys.sunrise, data.sys.sunset);
+        
+        // Map OpenWeatherMap condition codes to our condition types
+        let condition: 'sunny' | 'cloudy' | 'rainy' | 'night' = 'sunny';
+        
+        if (isNight) {
+          condition = 'night';
+        } else if (weatherId >= 200 && weatherId < 600) {
+          condition = 'rainy';
+        } else if (weatherId >= 600 && weatherId < 700) {
+          condition = 'cloudy';
+        } else if (weatherId >= 700 && weatherId < 800) {
+          condition = 'cloudy';
+        } else if (weatherId === 800) {
+          condition = 'sunny';
+        } else if (weatherId > 800) {
+          condition = 'cloudy';
+        }
+        
+        setWeather({
+          location: data.name,
+          condition,
+          temperature: Math.round(data.main.temp)
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching weather data:', error);
+      toast({
+        title: "Error fetching weather data",
+        description: "Could not get weather for the selected location.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Check if it's day or night based on sunrise and sunset times
+  const isDay = (sunrise: number, sunset: number) => {
+    const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+    return currentTime >= sunrise && currentTime < sunset;
+  };
   
   // Format time to HH:MM
   const formattedTime = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -73,10 +129,7 @@ const WeatherWidget = () => {
   
   const changeLocation = () => {
     if (locationInput.trim()) {
-      setWeather(prev => ({
-        ...prev,
-        location: locationInput
-      }));
+      fetchWeatherData(locationInput);
       localStorage.setItem('weather-location', locationInput);
       setLocationInput('');
       setIsDialogOpen(false);
@@ -89,9 +142,25 @@ const WeatherWidget = () => {
       <div className="text-xs text-muted-foreground">{formattedDate}</div>
       
       <div className="mt-3 flex flex-col items-center gap-1">
-        {weatherIcons[weather.condition]}
-        <div className="text-xl font-medium mt-1">{weather.temperature}°C</div>
-        <span className="text-xs text-muted-foreground">{weatherTexts[weather.condition]}</span>
+        {loading ? (
+          <div className="animate-pulse h-6 w-6 bg-gray-200 rounded-full"></div>
+        ) : (
+          weatherIcons[weather.condition]
+        )}
+        <div className="text-xl font-medium mt-1">
+          {loading ? (
+            <div className="animate-pulse h-5 w-12 bg-gray-200 rounded"></div>
+          ) : (
+            `${weather.temperature}°C`
+          )}
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {loading ? (
+            <div className="animate-pulse h-3 w-16 bg-gray-200 rounded"></div>
+          ) : (
+            weatherTexts[weather.condition]
+          )}
+        </span>
       </div>
       
       <div className="mt-3 flex items-center gap-1 text-xs">
