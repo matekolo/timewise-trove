@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Trophy, Award, Star, Check, Lock, Settings, SunIcon, MoonIcon } from "lucide-react";
@@ -8,18 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-
-interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  criteria: string;
-  reward: string;
-  icon: string;
-  progress: number;
-  unlocked: boolean;
-  claimed?: boolean;
-}
+import { Achievement, UserAchievement } from "@/types/achievementTypes";
 
 const Achievements = () => {
   const navigate = useNavigate();
@@ -53,44 +43,58 @@ const Achievements = () => {
   const { data: userAchievements = [], isLoading: loadingAchievements } = useQuery({
     queryKey: ["user-achievements"],
     queryFn: async () => {
-      const { data: achievementsData, error } = await supabase
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return [];
+      }
+      
+      const { data, error } = await supabase
         .from("user_achievements")
         .select("*")
-        .eq("user_id", (await supabase.auth.getUser()).data.user?.id);
+        .eq("user_id", user.id);
       
-      if (error) throw error;
-      return achievementsData || [];
+      if (error) {
+        console.error("Error fetching user achievements:", error);
+        return [];
+      }
+      
+      return data as UserAchievement[];
     },
   });
   
   const claimAchievementMutation = useMutation({
     mutationFn: async (achievementId: string) => {
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) throw new Error("Not authenticated");
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
       
-      const { data: existing } = await supabase
-        .from("user_achievements")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("achievement_id", achievementId)
-        .single();
-      
-      if (existing && existing.claimed) {
-        return existing;
+      if (!user) {
+        throw new Error("Not authenticated");
       }
       
-      if (existing) {
+      // Check if the achievement is already claimed
+      const existingAchievement = userAchievements.find(
+        ua => ua.achievement_id === achievementId && ua.user_id === user.id
+      );
+      
+      if (existingAchievement && existingAchievement.claimed) {
+        return existingAchievement;
+      }
+      
+      if (existingAchievement) {
+        // Update existing achievement to claimed
         const { data, error } = await supabase
           .from("user_achievements")
           .update({ claimed: true })
-          .eq("user_id", user.id)
-          .eq("achievement_id", achievementId)
+          .eq("id", existingAchievement.id)
           .select()
           .single();
         
         if (error) throw error;
         return data;
       } else {
+        // Create new achievement record
         const { data, error } = await supabase
           .from("user_achievements")
           .insert({
@@ -204,9 +208,10 @@ const Achievements = () => {
     { id: "locked", name: "Locked" }
   ];
   
+  // Add 'claimed' property to all achievements based on userAchievements data
   const enhancedAchievements = achievementList.map(achievement => {
     const userAchievement = userAchievements.find(
-      (ua: any) => ua.achievement_id === achievement.id
+      ua => ua.achievement_id === achievement.id
     );
     
     return {
@@ -252,7 +257,7 @@ const Achievements = () => {
       onError: (error) => {
         toast({
           title: "Error claiming reward",
-          description: error.message,
+          description: error instanceof Error ? error.message : "An error occurred",
           variant: "destructive"
         });
       }

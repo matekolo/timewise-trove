@@ -147,6 +147,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          claimed: boolean | null
+          created_at: string | null
+          id: string
+          unlocked_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          claimed?: boolean | null
+          created_at?: string | null
+          id?: string
+          unlocked_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          claimed?: boolean | null
+          created_at?: string | null
+          id?: string
+          unlocked_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

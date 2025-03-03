@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { UserAchievement } from "@/types/achievementTypes";
 
 const Settings = () => {
   // Get initial settings from localStorage or default values
@@ -59,25 +60,43 @@ const Settings = () => {
     localStorage.setItem('user-settings', JSON.stringify(settings));
   }, [settings]);
   
-  const { data: achievements = [] } = useQuery({
+  const { data: userAchievements = [] } = useQuery({
     queryKey: ["user-achievements"],
     queryFn: async () => {
-      // Get user achievements that are unlocked
-      const { data: userAchievements, error } = await supabase
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return [];
+      }
+      
+      const { data, error } = await supabase
         .from("user_achievements")
         .select("*")
-        .eq("user_id", (await supabase.auth.getUser()).data.user?.id);
+        .eq("user_id", user.id);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching user achievements:", error);
+        return [];
+      }
       
-      return [
-        { id: "early-bird", name: "Early Bird", unlocked: userAchievements?.some(ua => ua.achievement_id === "early-bird"), reward: "Morning Theme" },
-        { id: "night-owl", name: "Night Owl", unlocked: userAchievements?.some(ua => ua.achievement_id === "night-owl"), reward: "Dark Theme" },
-        { id: "zen-mind", name: "Zen Mind", unlocked: userAchievements?.some(ua => ua.achievement_id === "zen-mind"), reward: "Zen Avatar" },
-        { id: "focus-master", name: "Focus Master", unlocked: userAchievements?.some(ua => ua.achievement_id === "focus-master"), reward: "Productivity Avatar" }
-      ];
+      return data as UserAchievement[];
     }
   });
+  
+  // Define achievements for settings page
+  const availableAchievements = [
+    { id: "early-bird", name: "Early Bird", reward: "Morning Theme" },
+    { id: "night-owl", name: "Night Owl", reward: "Dark Theme" },
+    { id: "zen-mind", name: "Zen Mind", reward: "Zen Avatar" },
+    { id: "focus-master", name: "Focus Master", reward: "Productivity Avatar" }
+  ];
+  
+  // Map achievements to unlocked status
+  const achievements = availableAchievements.map(achievement => ({
+    ...achievement,
+    unlocked: userAchievements.some(ua => ua.achievement_id === achievement.id && ua.claimed)
+  }));
   
   const availableThemes = [
     { id: "blue", name: "Default Blue", requiresAchievement: false },
@@ -114,7 +133,7 @@ const Settings = () => {
     onError: (error) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive"
       });
     }
@@ -138,7 +157,7 @@ const Settings = () => {
     onError: (error) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive"
       });
     }
