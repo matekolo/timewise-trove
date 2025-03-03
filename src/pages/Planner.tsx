@@ -22,7 +22,10 @@ interface Task {
   due_date?: string;
   completed: boolean;
   user_id: string;
-  category: string;
+  category?: string;
+  created_at?: string;
+  updated_at?: string;
+  time?: string;
 }
 
 const Planner = () => {
@@ -56,7 +59,10 @@ const Planner = () => {
         throw error;
       }
       
-      return data as Task[];
+      return (data as any[]).map(task => ({
+        ...task,
+        category: task.category || "work"
+      })) as Task[];
     },
   });
 
@@ -77,7 +83,10 @@ const Planner = () => {
         throw error;
       }
       
-      return data as Task;
+      return {
+        ...data,
+        category: data.category || "work"
+      } as Task;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -118,7 +127,10 @@ const Planner = () => {
         throw error;
       }
       
-      return data as Task;
+      return {
+        ...data,
+        category: data.category || "work"
+      } as Task;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -224,7 +236,7 @@ const Planner = () => {
       
       if (a.completed !== b.completed) return a.completed ? 1 : -1;
       
-      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      return new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime();
     });
 
   return (
@@ -409,7 +421,7 @@ const Planner = () => {
       
       <Tile className="p-0">
         <div className="divide-y">
-          {tasks.isLoading ? (
+          {isLoading ? (
             <div className="p-6 text-center">
               <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
               <p className="text-sm text-muted-foreground mt-2">Loading tasks...</p>

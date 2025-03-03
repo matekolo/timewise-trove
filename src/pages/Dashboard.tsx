@@ -13,6 +13,13 @@ interface Task {
   id: string;
   title: string;
   completed: boolean;
+  category?: string;
+  created_at?: string;
+  updated_at?: string;
+  description?: string;
+  priority?: string;
+  time?: string;
+  user_id?: string;
 }
 
 const Dashboard = () => {
@@ -33,7 +40,10 @@ const Dashboard = () => {
         throw error;
       }
       
-      return data as Task[];
+      return (data as any[]).map(task => ({
+        ...task,
+        category: task.category || "work"
+      })) as Task[];
     },
   });
   
