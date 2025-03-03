@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Info } from "lucide-react";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -16,6 +18,8 @@ const Auth = () => {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirmationMessage, setShowConfirmationMessage] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState("");
   const navigate = useNavigate();
 
   // Check if user is already logged in
@@ -47,6 +51,7 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setShowConfirmationMessage(false);
     
     try {
       if (isLogin) {
@@ -56,15 +61,27 @@ const Auth = () => {
           password,
         });
         
-        if (error) throw error;
-        
-        toast({
-          title: "Logged in successfully",
-          description: "Welcome back to Timewise",
-        });
+        if (error) {
+          if (error.message === "Email not confirmed") {
+            setShowConfirmationMessage(true);
+            setConfirmationEmail(email);
+            toast({
+              title: "Email verification required",
+              description: "Please check your inbox and confirm your email address before logging in.",
+              variant: "destructive",
+            });
+          } else {
+            throw error;
+          }
+        } else {
+          toast({
+            title: "Logged in successfully",
+            description: "Welcome back to Timewise",
+          });
+        }
       } else {
         // Sign up user
-        const { error } = await supabase.auth.signUp({
+        const { error, data } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -76,16 +93,53 @@ const Auth = () => {
         
         if (error) throw error;
         
-        toast({
-          title: "Account created successfully",
-          description: "Welcome to Timewise",
-        });
+        // Check if email confirmation is required
+        if (data?.user?.identities && data.user.identities.length > 0) {
+          setShowConfirmationMessage(true);
+          setConfirmationEmail(email);
+          toast({
+            title: "Account created successfully",
+            description: "Please check your email to confirm your account",
+          });
+        } else {
+          toast({
+            title: "Account created successfully",
+            description: "Welcome to Timewise",
+          });
+        }
       }
     } catch (error: any) {
       setError(error.message || "An unexpected error occurred");
       toast({
         title: "Authentication error",
         description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendConfirmationEmail = async () => {
+    if (!confirmationEmail) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: confirmationEmail,
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Confirmation email sent",
+        description: "Please check your inbox for the confirmation link",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to resend confirmation email",
         variant: "destructive",
       });
     } finally {
@@ -114,6 +168,24 @@ const Auth = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {showConfirmationMessage && (
+              <Alert className="mb-4 border-amber-500 bg-amber-50 text-amber-800">
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  <p className="mb-2">Email verification required. Please check your inbox to confirm your email address.</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={resendConfirmationEmail}
+                    disabled={loading}
+                    className="text-amber-800 border-amber-300 hover:bg-amber-100"
+                  >
+                    Resend confirmation email
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
                 <div className="space-y-2">
