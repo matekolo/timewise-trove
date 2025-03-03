@@ -60,6 +60,7 @@ const Achievements = () => {
         return [];
       }
       
+      console.log("Fetched user achievements:", data);
       return data as UserAchievement[];
     },
   });
@@ -110,8 +111,10 @@ const Achievements = () => {
         return data;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["user-achievements"] });
+      // Trigger a local storage event to update settings in other components
+      window.dispatchEvent(new Event('storage'));
     }
   });
   
@@ -298,6 +301,9 @@ const Achievements = () => {
       default:
         break;
     }
+    
+    // Trigger storage event to make sure other components update
+    window.dispatchEvent(new Event('storage'));
     
     toast({
       title: "Reward applied!",

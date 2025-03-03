@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import WeatherWidget from "../ui/WeatherWidget";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -29,12 +31,23 @@ const Layout = () => {
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [userSettings, setUserSettings] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
         setIsAuthenticated(!!session);
+        
+        if (user) {
+          // Get user profile/metadata
+          setUserProfile({
+            name: user.user_metadata?.name || user.email?.split('@')[0] || "",
+            email: user.email
+          });
+        }
       } catch (error) {
         console.error("Error checking auth status:", error);
       } finally {
@@ -47,8 +60,32 @@ const Layout = () => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setIsAuthenticated(!!session);
+        
+        if (session?.user) {
+          // Update user profile on auth change
+          setUserProfile({
+            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || "",
+            email: session.user.email
+          });
+        }
       }
     );
+    
+    // Get user settings from localStorage
+    const savedSettings = localStorage.getItem('user-settings');
+    if (savedSettings) {
+      setUserSettings(JSON.parse(savedSettings));
+    }
+    
+    // Add event listener for settings changes
+    const handleStorageChange = () => {
+      const updatedSettings = localStorage.getItem('user-settings');
+      if (updatedSettings) {
+        setUserSettings(JSON.parse(updatedSettings));
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
     
     const checkScreenSize = () => {
       const mobile = window.innerWidth < 768;
@@ -65,9 +102,25 @@ const Layout = () => {
     
     return () => {
       window.removeEventListener("resize", checkScreenSize);
+      window.removeEventListener('storage', handleStorageChange);
       authListener.subscription.unsubscribe();
     };
   }, [navigate]);
+
+  // Listen for changes to user settings in localStorage
+  useEffect(() => {
+    const checkSettings = () => {
+      const savedSettings = localStorage.getItem('user-settings');
+      if (savedSettings) {
+        setUserSettings(JSON.parse(savedSettings));
+      }
+    };
+    
+    // Check for settings every second (to catch changes made in other components)
+    const interval = setInterval(checkSettings, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -113,6 +166,19 @@ const Layout = () => {
     { path: "/settings", label: "Settings", icon: SettingsIcon },
   ];
 
+  const getAvatarContent = () => {
+    if (!userSettings || !userSettings.avatar) return <User className="h-6 w-6" />;
+    
+    switch (userSettings.avatar) {
+      case 'zen':
+        return <div className="text-lg">🧘</div>;
+      case 'productivity':
+        return <div className="text-lg">⚡</div>;
+      default:
+        return userProfile?.name?.charAt(0).toUpperCase() || <User className="h-6 w-6" />;
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -137,7 +203,7 @@ const Layout = () => {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="w-64 bg-white border-r border-border h-screen fixed left-0 top-0 z-30 shadow-sm"
+            className="w-64 bg-white dark:bg-gray-800 border-r border-border h-screen fixed left-0 top-0 z-30 shadow-sm"
           >
             <div className="h-full flex flex-col">
               <div className="p-4 border-b flex items-center justify-between">
@@ -159,7 +225,7 @@ const Layout = () => {
                         `flex items-center px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                           isActive
                             ? "bg-primary/10 text-primary"
-                            : "text-gray-600 hover:bg-gray-100"
+                            : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                         }`
                       }
                     >
@@ -179,7 +245,7 @@ const Layout = () => {
       </AnimatePresence>
       
       <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? "md:ml-64" : ""}`}>
-        <header className="h-16 bg-white border-b border-border sticky top-0 z-20 flex items-center justify-between px-4">
+        <header className="h-16 bg-white dark:bg-gray-800 border-b border-border sticky top-0 z-20 flex items-center justify-between px-4">
           <div className="flex items-center">
             <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mr-2">
               <Menu className="h-5 w-5" />
@@ -189,7 +255,7 @@ const Layout = () => {
             </h2>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Button 
               variant="ghost" 
               size="icon"
@@ -199,6 +265,12 @@ const Layout = () => {
               <BellRing className="h-5 w-5" />
               <span className="absolute top-0 right-0 h-2 w-2 bg-primary rounded-full"></span>
             </Button>
+            
+            <Avatar className="h-8 w-8 border border-primary/20">
+              <AvatarFallback className="bg-primary/10 text-primary">
+                {getAvatarContent()}
+              </AvatarFallback>
+            </Avatar>
             
             <Button 
               variant="ghost" 

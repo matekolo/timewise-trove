@@ -10,11 +10,13 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/use-toast";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { UserAchievement } from "@/types/achievementTypes";
 
 const Settings = () => {
+  const queryClient = useQueryClient();
+  
   // Get initial settings from localStorage or default values
   const getInitialSettings = () => {
     const savedSettings = localStorage.getItem('user-settings');
@@ -48,19 +50,36 @@ const Settings = () => {
     loadUserProfile();
   }, []);
   
-  // Apply dark mode when settings change
+  // Apply settings when they change
   useEffect(() => {
+    // Apply dark mode
     if (settings.darkMode) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
     
+    // Apply theme color (add CSS variables or classes as needed)
+    const applyThemeColor = (color: string) => {
+      // Remove any existing theme classes
+      document.documentElement.classList.remove(
+        'theme-blue', 'theme-green', 'theme-purple', 
+        'theme-morning', 'theme-night'
+      );
+      
+      // Add the new theme class
+      document.documentElement.classList.add(`theme-${color}`);
+    };
+    
+    applyThemeColor(settings.themeColor);
+    
     // Save settings to localStorage whenever they change
     localStorage.setItem('user-settings', JSON.stringify(settings));
+    
+    console.log("Settings applied:", settings);
   }, [settings]);
   
-  const { data: userAchievements = [] } = useQuery({
+  const { data: userAchievements = [], isLoading: loadingAchievements } = useQuery({
     queryKey: ["user-achievements"],
     queryFn: async () => {
       // Get the current user
@@ -80,8 +99,9 @@ const Settings = () => {
         return [];
       }
       
+      console.log("Fetched user achievements:", data);
       return data as UserAchievement[];
-    }
+    },
   });
   
   // Define achievements for settings page
@@ -174,13 +194,6 @@ const Settings = () => {
       title: "Settings saved",
       description: "Your preferences have been updated.",
     });
-    
-    // Apply theme immediately
-    if (settings.darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
   };
   
   const isThemeAvailable = (themeId: string) => {
