@@ -6,18 +6,63 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { CheckIcon } from "lucide-react";
+
+interface Task {
+  id: string;
+  title: string;
+  completed: boolean;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [progress, setProgress] = useState(0);
   
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery({
+    queryKey: ["dashboard-tasks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(4);
+      
+      if (error) {
+        console.error("Error fetching tasks:", error);
+        throw error;
+      }
+      
+      return data as Task[];
+    },
+  });
+  
+  const { data: habits = [], isLoading: habitsLoading } = useQuery({
+    queryKey: ["dashboard-habits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("habits")
+        .select("*");
+      
+      if (error) {
+        console.error("Error fetching habits:", error);
+        throw error;
+      }
+      
+      return data;
+    },
+  });
+  
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setProgress(72);
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, []);
+    if (!tasksLoading && tasks.length > 0) {
+      const completedCount = tasks.filter(task => task.completed).length;
+      const calculatedProgress = Math.round((completedCount / tasks.length) * 100);
+      setProgress(calculatedProgress);
+    } else {
+      setProgress(0);
+    }
+  }, [tasks, tasksLoading]);
   
   const tiles = [
     {
@@ -48,13 +93,6 @@ const Dashboard = () => {
       path: "/reports",
       delay: 3
     }
-  ];
-  
-  const tasksForToday = [
-    { id: 1, title: "Review project proposal", completed: true },
-    { id: 2, title: "Team meeting at 2PM", completed: true },
-    { id: 3, title: "Complete weekly report", completed: false },
-    { id: 4, title: "Plan tomorrow's schedule", completed: false }
   ];
 
   return (
@@ -98,7 +136,7 @@ const Dashboard = () => {
           <div className="space-y-6">
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span>Productivity</span>
+                <span>Task Completion</span>
                 <span className="font-medium">{progress}%</span>
               </div>
               <Progress value={progress} className="h-2" />
@@ -106,58 +144,57 @@ const Dashboard = () => {
             
             <div className="space-y-3">
               <h4 className="text-sm font-medium">Habit Streaks</h4>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">No smoking</span>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5, 6, 7].map((day) => (
-                    <div 
-                      key={day} 
-                      className={`w-3 h-3 rounded-sm ${
-                        day <= 5 ? "bg-primary/80" : "bg-gray-200"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Daily exercise</span>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5, 6, 7].map((day) => (
-                    <div 
-                      key={day} 
-                      className={`w-3 h-3 rounded-sm ${
-                        day <= 3 ? "bg-primary/80" : "bg-gray-200"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
+              {habitsLoading ? (
+                <div className="py-2 text-center text-sm text-muted-foreground">Loading habits...</div>
+              ) : habits.length > 0 ? (
+                habits.slice(0, 2).map((habit: any) => (
+                  <div key={habit.id} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{habit.name}</span>
+                    <div className="flex gap-1">
+                      {Array.from({ length: 7 }).map((_, day) => (
+                        <div 
+                          key={day} 
+                          className={`w-3 h-3 rounded-sm ${
+                            day < (habit.streak || 0) ? "bg-primary/80" : "bg-gray-200"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">No habits tracked yet</p>
+              )}
             </div>
           </div>
         </Tile>
         
         <Tile title="Today's Tasks" delay={5}>
           <div className="space-y-3">
-            {tasksForToday.map((task) => (
-              <div key={task.id} className="flex items-center gap-3">
-                <div className={`w-5 h-5 rounded-full border ${
-                  task.completed 
-                    ? "bg-primary border-primary text-white flex items-center justify-center"
-                    : "border-gray-300"
-                }`}>
-                  {task.completed && (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                  )}
+            {tasksLoading ? (
+              <div className="py-2 text-center text-sm text-muted-foreground">Loading tasks...</div>
+            ) : tasks.length > 0 ? (
+              tasks.map((task) => (
+                <div key={task.id} className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded-full border ${
+                    task.completed 
+                      ? "bg-primary border-primary text-white flex items-center justify-center"
+                      : "border-gray-300"
+                  }`}>
+                    {task.completed && (
+                      <CheckIcon className="h-3 w-3" />
+                    )}
+                  </div>
+                  <span className={task.completed ? "line-through text-muted-foreground" : ""}>
+                    {task.title}
+                  </span>
                 </div>
-                <span className={task.completed ? "line-through text-muted-foreground" : ""}>
-                  {task.title}
-                </span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-center py-4 text-sm text-muted-foreground">No tasks scheduled</p>
+            )}
             
-            <Button variant="outline" size="sm" className="w-full mt-4">
+            <Button variant="outline" size="sm" className="w-full mt-4" onClick={() => navigate("/planner")}>
               View all tasks
             </Button>
           </div>

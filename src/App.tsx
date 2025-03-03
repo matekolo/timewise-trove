@@ -13,6 +13,8 @@ import CalendarView from "./pages/CalendarView";
 import Reports from "./pages/Reports";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Achievements from "./pages/Achievements";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +33,8 @@ const App = () => (
             <Route path="notes" element={<Notes />} />
             <Route path="calendar" element={<CalendarView />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="achievements" element={<Achievements />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -1,16 +1,18 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, X, MoreHorizontal, Trash2, Edit } from "lucide-react";
+import { Plus, X, MoreHorizontal, Trash2, Edit, ThumbsUp, ThumbsDown } from "lucide-react";
 import Tile from "@/components/ui/Tile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Badge } from "@/components/ui/badge";
 
 interface Habit {
   id: string;
@@ -18,14 +20,17 @@ interface Habit {
   goal: string;
   streak: number;
   days: boolean[];
+  type: "good" | "bad";
   user_id: string;
 }
 
 const HabitTracker = () => {
   const [newHabitName, setNewHabitName] = useState("");
   const [newHabitGoal, setNewHabitGoal] = useState("");
+  const [newHabitType, setNewHabitType] = useState<"good" | "bad">("good");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  const [activeFilter, setActiveFilter] = useState<"all" | "good" | "bad">("all");
   const queryClient = useQueryClient();
   
   // Fetch habits from Supabase
@@ -64,6 +69,7 @@ const HabitTracker = () => {
       queryClient.invalidateQueries({ queryKey: ["habits"] });
       setNewHabitName("");
       setNewHabitGoal("");
+      setNewHabitType("good");
       setIsDialogOpen(false);
       
       toast({
@@ -161,6 +167,7 @@ const HabitTracker = () => {
         id: editingHabit.id,
         name: newHabitName,
         goal: newHabitGoal,
+        type: newHabitType,
       });
       setEditingHabit(null);
     } else {
@@ -170,6 +177,7 @@ const HabitTracker = () => {
         goal: newHabitGoal,
         streak: 0,
         days: [false, false, false, false, false, false, false],
+        type: newHabitType,
         user_id: user.id
       });
     }
@@ -204,12 +212,20 @@ const HabitTracker = () => {
     setEditingHabit(habit);
     setNewHabitName(habit.name);
     setNewHabitGoal(habit.goal || "");
+    setNewHabitType(habit.type || "good");
     setIsDialogOpen(true);
   };
   
   const getDayName = (index: number) => {
     return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index];
   };
+  
+  const filteredHabits = habits.filter((habit: any) => {
+    // If type is not defined, default to "good"
+    const habitType = habit.type || "good";
+    if (activeFilter === "all") return true;
+    return habitType === activeFilter;
+  });
 
   if (isLoading) {
     return (
@@ -249,6 +265,7 @@ const HabitTracker = () => {
             setEditingHabit(null);
             setNewHabitName("");
             setNewHabitGoal("");
+            setNewHabitType("good");
           }
         }}>
           <DialogTrigger asChild>
@@ -270,7 +287,7 @@ const HabitTracker = () => {
                 <Label htmlFor="habit-name">Habit name</Label>
                 <Input
                   id="habit-name"
-                  placeholder="E.g., No smoking"
+                  placeholder="E.g., Daily exercise"
                   value={newHabitName}
                   onChange={(e) => setNewHabitName(e.target.value)}
                 />
@@ -280,10 +297,39 @@ const HabitTracker = () => {
                 <Label htmlFor="habit-goal">Goal (optional)</Label>
                 <Input
                   id="habit-goal"
-                  placeholder="E.g., Quit smoking completely"
+                  placeholder="E.g., 30 minutes of exercise daily"
                   value={newHabitGoal}
                   onChange={(e) => setNewHabitGoal(e.target.value)}
                 />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Habit Type</Label>
+                <RadioGroup 
+                  value={newHabitType} 
+                  onValueChange={(value: "good" | "bad") => setNewHabitType(value)}
+                  className="flex space-x-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="good" id="habit-type-good" />
+                    <Label htmlFor="habit-type-good" className="flex items-center gap-1">
+                      <ThumbsUp className="h-4 w-4 text-green-500" />
+                      <span>Good Habit</span>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="bad" id="habit-type-bad" />
+                    <Label htmlFor="habit-type-bad" className="flex items-center gap-1">
+                      <ThumbsDown className="h-4 w-4 text-red-500" />
+                      <span>Bad Habit</span>
+                    </Label>
+                  </div>
+                </RadioGroup>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {newHabitType === "good" 
+                    ? "A habit you want to build and maintain" 
+                    : "A habit you want to break or avoid"}
+                </p>
               </div>
             </div>
             
@@ -295,6 +341,7 @@ const HabitTracker = () => {
                   setEditingHabit(null);
                   setNewHabitName("");
                   setNewHabitGoal("");
+                  setNewHabitType("good");
                 }}
               >
                 Cancel
@@ -310,8 +357,36 @@ const HabitTracker = () => {
         </Dialog>
       </div>
       
+      <div className="flex gap-2">
+        <Button 
+          variant={activeFilter === "all" ? "default" : "outline"} 
+          size="sm"
+          onClick={() => setActiveFilter("all")}
+        >
+          All Habits
+        </Button>
+        <Button 
+          variant={activeFilter === "good" ? "default" : "outline"} 
+          size="sm"
+          className="gap-1"
+          onClick={() => setActiveFilter("good")}
+        >
+          <ThumbsUp className="h-3 w-3" />
+          <span>Good Habits</span>
+        </Button>
+        <Button 
+          variant={activeFilter === "bad" ? "default" : "outline"} 
+          size="sm"
+          className="gap-1"
+          onClick={() => setActiveFilter("bad")}
+        >
+          <ThumbsDown className="h-3 w-3" />
+          <span>Bad Habits</span>
+        </Button>
+      </div>
+      
       <div className="grid grid-cols-1 gap-6">
-        {habits.map((habit, index) => (
+        {filteredHabits.map((habit: any, index) => (
           <Tile
             key={habit.id}
             delay={index}
@@ -319,9 +394,16 @@ const HabitTracker = () => {
           >
             <div className="flex flex-col space-y-4">
               <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-lg font-medium">{habit.name}</h3>
-                  <p className="text-sm text-muted-foreground">{habit.goal}</p>
+                <div className="flex gap-2">
+                  <div>
+                    <h3 className="text-lg font-medium flex items-center gap-2">
+                      {habit.name}
+                      <Badge variant={habit.type === "bad" ? "destructive" : "default"} className="ml-2">
+                        {habit.type === "bad" ? "Break Habit" : "Build Habit"}
+                      </Badge>
+                    </h3>
+                    <p className="text-sm text-muted-foreground">{habit.goal}</p>
+                  </div>
                 </div>
                 
                 <div className="flex items-center gap-4">
@@ -356,7 +438,7 @@ const HabitTracker = () => {
               </div>
               
               <div className="grid grid-cols-7 gap-2 mt-4">
-                {habit.days.map((completed, dayIndex) => (
+                {habit.days.map((completed: boolean, dayIndex: number) => (
                   <div key={dayIndex} className="flex flex-col items-center">
                     <span className="text-xs text-muted-foreground mb-2">
                       {getDayName(dayIndex)}
@@ -364,13 +446,19 @@ const HabitTracker = () => {
                     <button
                       className={`w-10 h-10 rounded-full border transition-all duration-200 flex items-center justify-center ${
                         completed
-                          ? "bg-primary border-primary text-white"
+                          ? habit.type === "bad"
+                            ? "bg-red-500 border-red-500 text-white"
+                            : "bg-primary border-primary text-white"
                           : "border-gray-200 text-gray-400 hover:border-primary/50"
                       }`}
                       onClick={() => toggleDay(habit, dayIndex)}
                     >
                       {completed ? (
-                        <X className="h-5 w-5" />
+                        habit.type === "bad" ? (
+                          <X className="h-5 w-5" />
+                        ) : (
+                          <CheckIcon className="h-5 w-5" />
+                        )
                       ) : (
                         <Plus className="h-5 w-5" />
                       )}
@@ -382,10 +470,14 @@ const HabitTracker = () => {
           </Tile>
         ))}
         
-        {habits.length === 0 && (
+        {filteredHabits.length === 0 && (
           <div className="text-center py-12">
-            <h3 className="text-lg font-medium">No habits added yet</h3>
-            <p className="text-muted-foreground mt-1">Add your first habit to start tracking</p>
+            <h3 className="text-lg font-medium">No habits found</h3>
+            <p className="text-muted-foreground mt-1">
+              {activeFilter === "all" 
+                ? "Add your first habit to start tracking" 
+                : `No ${activeFilter} habits found. Add one using the button above.`}
+            </p>
           </div>
         )}
       </div>
