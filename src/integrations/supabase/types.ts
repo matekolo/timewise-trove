@@ -53,6 +53,7 @@ export type Database = {
           id: string
           name: string
           streak: number | null
+          type: string
           updated_at: string | null
           user_id: string
         }
@@ -63,6 +64,7 @@ export type Database = {
           id?: string
           name: string
           streak?: number | null
+          type?: string
           updated_at?: string | null
           user_id: string
         }
@@ -73,6 +75,7 @@ export type Database = {
           id?: string
           name?: string
           streak?: number | null
+          type?: string
           updated_at?: string | null
           user_id?: string
         }
