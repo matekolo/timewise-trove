@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,7 +12,8 @@ import {
   Menu,
   X,
   BellRing,
-  LogOut
+  LogOut,
+  Trophy
 } from "lucide-react";
 import WeatherWidget from "../ui/WeatherWidget";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,6 @@ const Layout = () => {
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    // Check authentication status
     const checkAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -44,14 +43,12 @@ const Layout = () => {
     
     checkAuth();
     
-    // Set up auth state listener
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setIsAuthenticated(!!session);
       }
     );
     
-    // Handle responsive sidebar
     const checkScreenSize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
@@ -71,7 +68,6 @@ const Layout = () => {
     };
   }, [navigate]);
 
-  // Redirect to auth page if not authenticated
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       navigate("/auth");
@@ -112,6 +108,7 @@ const Layout = () => {
     { path: "/notes", label: "Notes", icon: FileText },
     { path: "/calendar", label: "Calendar", icon: Calendar },
     { path: "/reports", label: "Reports", icon: BarChart },
+    { path: "/achievements", label: "Achievements", icon: Trophy },
   ];
 
   if (loading) {
@@ -131,7 +128,6 @@ const Layout = () => {
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Sidebar */}
       <AnimatePresence mode="wait">
         {isSidebarOpen && (
           <motion.aside
@@ -180,9 +176,7 @@ const Layout = () => {
         )}
       </AnimatePresence>
       
-      {/* Main content */}
       <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? "md:ml-64" : ""}`}>
-        {/* Header */}
         <header className="h-16 bg-white border-b border-border sticky top-0 z-20 flex items-center justify-between px-4">
           <div className="flex items-center">
             <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mr-2">
@@ -215,7 +209,6 @@ const Layout = () => {
           </div>
         </header>
         
-        {/* Page content */}
         <main className="flex-1 p-6 overflow-y-auto">
           <motion.div
             key={location.pathname}

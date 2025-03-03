@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -13,6 +12,7 @@ import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 interface Task {
   id: string;
@@ -38,8 +38,8 @@ interface Habit {
 const Reports = () => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [timeRange, setTimeRange] = useState("week");
+  const navigate = useNavigate();
   
-  // Get the date range based on selected time range
   const getDateRange = () => {
     const today = new Date();
     
@@ -66,7 +66,6 @@ const Reports = () => {
     }
   };
   
-  // Fetch tasks data
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
@@ -87,7 +86,6 @@ const Reports = () => {
     },
   });
   
-  // Fetch events data
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
@@ -108,7 +106,6 @@ const Reports = () => {
     },
   });
   
-  // Fetch habits data
   const { data: habits = [] } = useQuery({
     queryKey: ["habits"],
     queryFn: async () => {
@@ -129,14 +126,12 @@ const Reports = () => {
     },
   });
   
-  // Filter tasks by selected time range
   const filteredTasks = tasks.filter(task => {
     const { start, end } = getDateRange();
     const taskDate = parseISO(task.created_at);
     return isWithinInterval(taskDate, { start, end });
   });
   
-  // Generate habit data for chart
   const habitData = habits
     .sort((a, b) => (b.streak || 0) - (a.streak || 0))
     .slice(0, 7)
@@ -145,11 +140,9 @@ const Reports = () => {
       value: habit.streak || 0
     }));
   
-  // Generate productivity data (% of completed tasks per day)
   const generateProductivityData = () => {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     
-    // Calculate completion percentage for each day
     return days.map(day => {
       const dayTasks = filteredTasks.filter(task => {
         const taskDate = parseISO(task.created_at);
@@ -170,7 +163,6 @@ const Reports = () => {
   
   const productivityData = generateProductivityData();
   
-  // Generate category data based on event types
   const generateCategoryData = () => {
     const categories: Record<string, number> = {};
     
@@ -190,14 +182,12 @@ const Reports = () => {
   
   const categoryData = generateCategoryData();
   
-  // Calculate overall statistics
   const completedTasksCount = filteredTasks.filter(task => task.completed).length;
   const totalTasksCount = filteredTasks.length;
   const productivityScore = totalTasksCount > 0 
     ? Math.round((completedTasksCount / totalTasksCount) * 100) 
     : 0;
   
-  // Find top habits based on streak
   const topHabits = habits
     .sort((a, b) => (b.streak || 0) - (a.streak || 0))
     .slice(0, 2);

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
@@ -14,6 +13,7 @@ import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Event {
   id: string;
@@ -44,7 +44,6 @@ const CalendarView = () => {
     type: "meeting",
   });
   
-  // Fetch events
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
@@ -65,7 +64,6 @@ const CalendarView = () => {
     },
   });
   
-  // Add a new event
   const addEventMutation = useMutation({
     mutationFn: async (event: Omit<Event, "id">) => {
       const { data, error } = await supabase
@@ -103,7 +101,6 @@ const CalendarView = () => {
     },
   });
 
-  // Delete event 
   const deleteEventMutation = useMutation({
     mutationFn: async (eventId: string) => {
       const { error } = await supabase
@@ -138,7 +135,6 @@ const CalendarView = () => {
       return;
     }
     
-    // Get current user
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -218,7 +214,7 @@ const CalendarView = () => {
               <span>Add Event</span>
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Add a new event</DialogTitle>
               <DialogDescription>
@@ -226,73 +222,83 @@ const CalendarView = () => {
               </DialogDescription>
             </DialogHeader>
             
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="event-title">Event title</Label>
-                <Input
-                  id="event-title"
-                  placeholder="E.g., Team meeting"
-                  value={newEvent.title}
-                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                />
-              </div>
+            <Tabs defaultValue="details">
+              <TabsList className="grid grid-cols-2 mb-4">
+                <TabsTrigger value="details">Event Details</TabsTrigger>
+                <TabsTrigger value="date">Date & Time</TabsTrigger>
+              </TabsList>
               
-              <div className="space-y-2">
-                <Label htmlFor="event-description">Description (optional)</Label>
-                <Textarea
-                  id="event-description"
-                  placeholder="Add details about this event"
-                  value={newEvent.description || ""}
-                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Date</Label>
-                <Calendar
-                  mode="single"
-                  selected={parseISO(newEvent.date)}
-                  onSelect={(selectedDate) => {
-                    if (selectedDate) {
-                      setNewEvent({ ...newEvent, date: selectedDate.toISOString() });
+              <TabsContent value="details" className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="event-title">Event title</Label>
+                  <Input
+                    id="event-title"
+                    placeholder="E.g., Team meeting"
+                    value={newEvent.title}
+                    onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="event-description">Description (optional)</Label>
+                  <Textarea
+                    id="event-description"
+                    placeholder="Add details about this event"
+                    value={newEvent.description || ""}
+                    onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                    className="h-20"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="event-type">Event type</Label>
+                  <Select
+                    value={newEvent.type}
+                    onValueChange={(value: "meeting" | "personal" | "deadline" | "other") => 
+                      setNewEvent({ ...newEvent, type: value })
                     }
-                  }}
-                  className="rounded-md border"
-                />
-              </div>
+                  >
+                    <SelectTrigger id="event-type">
+                      <SelectValue placeholder="Select event type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="meeting">Meeting</SelectItem>
+                      <SelectItem value="personal">Personal</SelectItem>
+                      <SelectItem value="deadline">Deadline</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </TabsContent>
               
-              <div className="space-y-2">
-                <Label htmlFor="event-time">Time</Label>
-                <Input
-                  id="event-time"
-                  type="time"
-                  value={newEvent.time || ""}
-                  onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="event-type">Event type</Label>
-                <Select
-                  value={newEvent.type}
-                  onValueChange={(value: "meeting" | "personal" | "deadline" | "other") => 
-                    setNewEvent({ ...newEvent, type: value })
-                  }
-                >
-                  <SelectTrigger id="event-type">
-                    <SelectValue placeholder="Select event type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="meeting">Meeting</SelectItem>
-                    <SelectItem value="personal">Personal</SelectItem>
-                    <SelectItem value="deadline">Deadline</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+              <TabsContent value="date" className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Calendar
+                    mode="single"
+                    selected={parseISO(newEvent.date)}
+                    onSelect={(selectedDate) => {
+                      if (selectedDate) {
+                        setNewEvent({ ...newEvent, date: selectedDate.toISOString() });
+                      }
+                    }}
+                    className="rounded-md border mx-auto"
+                  />
+                </div>
+                
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="event-time">Time</Label>
+                  <Input
+                    id="event-time"
+                    type="time"
+                    value={newEvent.time || ""}
+                    onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
             
-            <DialogFooter>
+            <DialogFooter className="mt-4">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>

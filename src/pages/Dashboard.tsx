@@ -1,6 +1,5 @@
-
 import { motion } from "framer-motion";
-import { CalendarClock, BarChart2, FileText, Activity, ArrowRight } from "lucide-react";
+import { CalendarClock, BarChart2, FileText, Activity, ArrowRight, Trophy } from "lucide-react";
 import Tile from "@/components/ui/Tile";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -87,10 +86,10 @@ const Dashboard = () => {
       delay: 2
     },
     {
-      title: "Reports",
-      description: "View your productivity reports",
-      icon: BarChart2,
-      path: "/reports",
+      title: "Achievements",
+      description: "View your earned achievements and rewards",
+      icon: Trophy,
+      path: "/achievements",
       delay: 3
     }
   ];
@@ -199,6 +198,15 @@ const Dashboard = () => {
             </Button>
           </div>
         </Tile>
+      </div>
+      
+      <div className="flex justify-between mt-2">
+        <Button variant="outline" size="sm" onClick={() => navigate("/calendar")}>
+          View Calendar
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => navigate("/reports")}>
+          View Reports
+        </Button>
       </div>
     </div>
   );
