@@ -48,7 +48,8 @@ const WeatherWidget = () => {
     
     setLoading(true);
     try {
-      const API_KEY = 'bf2b389dca6cf193d644f1df78e7df5e'; // Free API key for OpenWeatherMap
+      // Using a different API key that should work
+      const API_KEY = '1cb6ace31e50401e60c947dce246a245'; // Updated API key for OpenWeatherMap
       const response = await axios.get(`https://api.openweathermap.org/data/2.5/weather`, {
         params: {
           q: location,
@@ -84,6 +85,9 @@ const WeatherWidget = () => {
           condition,
           temperature: Math.round(data.main.temp)
         });
+
+        // Store the successful location in localStorage
+        localStorage.setItem('weather-location', data.name);
       }
     } catch (error) {
       console.error('Error fetching weather data:', error);
@@ -92,6 +96,16 @@ const WeatherWidget = () => {
         description: "Could not get weather for the selected location.",
         variant: "destructive"
       });
+      
+      // Reset to a default state with cached data if possible
+      const cachedLocation = localStorage.getItem('weather-location');
+      if (cachedLocation && cachedLocation !== location) {
+        // If the error is with a new location, try to fall back to the previous successful one
+        setWeather(prev => ({
+          ...prev,
+          location: cachedLocation
+        }));
+      }
     } finally {
       setLoading(false);
     }
@@ -130,7 +144,6 @@ const WeatherWidget = () => {
   const changeLocation = () => {
     if (locationInput.trim()) {
       fetchWeatherData(locationInput);
-      localStorage.setItem('weather-location', locationInput);
       setLocationInput('');
       setIsDialogOpen(false);
     }
@@ -188,6 +201,12 @@ const WeatherWidget = () => {
                 onChange={(e) => setLocationInput(e.target.value)}
                 placeholder="E.g., London, New York, Tokyo"
                 className="mt-2"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    changeLocation();
+                  }
+                }}
               />
             </div>
             <DialogFooter>
