@@ -1,12 +1,13 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,22 +15,82 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { toast } = useToast();
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        navigate("/");
+      }
+    };
+    
+    checkSession();
+    
+    // Set up auth state listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session) {
+          navigate("/");
+        }
+      }
+    );
+    
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     
-    // Simulate authentication delay
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      if (isLogin) {
+        // Sign in user
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (error) throw error;
+        
+        toast({
+          title: "Logged in successfully",
+          description: "Welcome back to Timewise",
+        });
+      } else {
+        // Sign up user
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name: name || email.split('@')[0],
+            },
+          },
+        });
+        
+        if (error) throw error;
+        
+        toast({
+          title: "Account created successfully",
+          description: "Welcome to Timewise",
+        });
+      }
+    } catch (error: any) {
+      setError(error.message || "An unexpected error occurred");
       toast({
-        title: isLogin ? "Logged in successfully" : "Account created successfully",
-        description: "Welcome to Timewise",
+        title: "Authentication error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
       });
-      navigate("/");
-    }, 1500);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -62,7 +123,6 @@ const Auth = () => {
                     placeholder="John Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    required
                   />
                 </div>
               )}
@@ -87,6 +147,9 @@ const Auth = () => {
                   required
                 />
               </div>
+              {error && (
+                <div className="text-sm text-destructive">{error}</div>
+              )}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                   <span className="flex items-center gap-2">
