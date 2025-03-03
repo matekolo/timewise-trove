@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Cloud, Sun, CloudRain, Moon, MapPin, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,7 +26,6 @@ const WeatherWidget = () => {
   
   const { toast } = useToast();
 
-  // Update time every minute
   useEffect(() => {
     const timer = setInterval(() => {
       setTime(new Date());
@@ -38,7 +36,6 @@ const WeatherWidget = () => {
     };
   }, []);
 
-  // Fetch weather data when location changes or component mounts
   useEffect(() => {
     fetchWeatherData(weather.location);
   }, []);
@@ -48,13 +45,12 @@ const WeatherWidget = () => {
     
     setLoading(true);
     try {
-      // Using a different API key that should work
-      const API_KEY = '1cb6ace31e50401e60c947dce246a245'; // Updated API key for OpenWeatherMap
+      const API_KEY = '9de243494c0b295cca9337e1e96b00e2';
       const response = await axios.get(`https://api.openweathermap.org/data/2.5/weather`, {
         params: {
           q: location,
           appid: API_KEY,
-          units: 'metric' // For temperature in Celsius
+          units: 'metric'
         }
       });
       
@@ -63,7 +59,6 @@ const WeatherWidget = () => {
         const weatherId = data.weather[0].id;
         const isNight = !isDay(data.sys.sunrise, data.sys.sunset);
         
-        // Map OpenWeatherMap condition codes to our condition types
         let condition: 'sunny' | 'cloudy' | 'rainy' | 'night' = 'sunny';
         
         if (isNight) {
@@ -86,7 +81,6 @@ const WeatherWidget = () => {
           temperature: Math.round(data.main.temp)
         });
 
-        // Store the successful location in localStorage
         localStorage.setItem('weather-location', data.name);
       }
     } catch (error) {
@@ -97,13 +91,14 @@ const WeatherWidget = () => {
         variant: "destructive"
       });
       
-      // Reset to a default state with cached data if possible
       const cachedLocation = localStorage.getItem('weather-location');
       if (cachedLocation && cachedLocation !== location) {
-        // If the error is with a new location, try to fall back to the previous successful one
+        fetchWeatherData(cachedLocation);
+      } else {
         setWeather(prev => ({
           ...prev,
-          location: cachedLocation
+          condition: 'sunny',
+          temperature: 20
         }));
       }
     } finally {
@@ -111,16 +106,13 @@ const WeatherWidget = () => {
     }
   };
   
-  // Check if it's day or night based on sunrise and sunset times
   const isDay = (sunrise: number, sunset: number) => {
-    const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+    const currentTime = Math.floor(Date.now() / 1000);
     return currentTime >= sunrise && currentTime < sunset;
   };
   
-  // Format time to HH:MM
   const formattedTime = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   
-  // Format date to Day, Month Date
   const formattedDate = time.toLocaleDateString([], { 
     weekday: 'short', 
     month: 'short', 
