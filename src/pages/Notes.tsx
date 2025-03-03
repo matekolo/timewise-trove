@@ -65,10 +65,10 @@ const Notes = () => {
   
   // Add a new note
   const addNoteMutation = useMutation({
-    mutationFn: async (note: Omit<Note, "id" | "created_at" | "user_id">) => {
+    mutationFn: async (note: Omit<Note, "id" | "created_at">) => {
       const { data, error } = await supabase
         .from("notes")
-        .insert([note])
+        .insert(note)
         .select()
         .single();
       
@@ -171,10 +171,22 @@ const Notes = () => {
     setEditId(null);
   };
   
-  const addOrUpdateNote = () => {
+  const addOrUpdateNote = async () => {
     if (newNote.title.trim() === "") {
       toast({
         title: "Please enter a note title",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to add notes",
         variant: "destructive",
       });
       return;
@@ -187,8 +199,11 @@ const Notes = () => {
         note: newNote,
       });
     } else {
-      // Add new note
-      addNoteMutation.mutate(newNote);
+      // Add new note with user_id included
+      addNoteMutation.mutate({
+        ...newNote,
+        user_id: user.id
+      });
     }
   };
   

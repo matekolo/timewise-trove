@@ -50,10 +50,10 @@ const HabitTracker = () => {
   
   // Add a new habit
   const addHabitMutation = useMutation({
-    mutationFn: async (habit: Omit<Habit, "id" | "user_id">) => {
+    mutationFn: async (habit: Omit<Habit, "id">) => {
       const { data, error } = await supabase
         .from("habits")
-        .insert([habit])
+        .insert(habit)
         .select()
         .single();
       
@@ -134,10 +134,22 @@ const HabitTracker = () => {
     },
   });
   
-  const addHabit = () => {
+  const addHabit = async () => {
     if (newHabitName.trim() === "") {
       toast({
         title: "Please enter a habit name",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to add habits",
         variant: "destructive",
       });
       return;
@@ -158,6 +170,7 @@ const HabitTracker = () => {
         goal: newHabitGoal,
         streak: 0,
         days: [false, false, false, false, false, false, false],
+        user_id: user.id
       });
     }
   };
