@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Cloud, Sun, CloudRain, Moon, MapPin, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,7 @@ const WeatherWidget = () => {
     
     setLoading(true);
     try {
-      const API_KEY = '9de243494c0b295cca9337e1e96b00e2';
+      const API_KEY = '48124ec1ef19f2e176ef493b433c2acc'; // Updated with user provided API key
       const response = await axios.get(`https://api.openweathermap.org/data/2.5/weather`, {
         params: {
           q: location,
