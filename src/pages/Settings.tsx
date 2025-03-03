@@ -1,7 +1,6 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Settings as SettingsIcon, User, PaletteIcon, Bell, Moon, Sun, Globe, Volume2 } from "lucide-react";
+import { Settings as SettingsIcon, User, PaletteIcon, Bell, Moon, Sun, Globe, Volume2, Lock } from "lucide-react";
 import Tile from "@/components/ui/Tile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,12 +20,9 @@ const Settings = () => {
   const [language, setLanguage] = useState("english");
   const [themeColor, setThemeColor] = useState("blue");
   
-  // Fetch user achievements to show available themes
   const { data: achievements = [] } = useQuery({
     queryKey: ["user-achievements"],
     queryFn: async () => {
-      // This would normally fetch from a user_achievements table,
-      // but for now we'll return mock data
       return [
         { id: "early-bird", name: "Early Bird", unlocked: true, reward: "Morning Theme" },
         { id: "night-owl", name: "Night Owl", unlocked: false, reward: "Dark Theme" },
@@ -153,7 +149,7 @@ const Settings = () => {
                       ></div>
                       {!isThemeAvailable(theme.id) && (
                         <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-md">
-                          <LockIcon className="h-4 w-4 text-muted-foreground" />
+                          <Lock className="h-4 w-4 text-muted-foreground" />
                         </div>
                       )}
                     </button>
@@ -206,7 +202,7 @@ const Settings = () => {
                     </div>
                     {!isAvatarAvailable(avatar.id) && (
                       <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-full">
-                        <LockIcon className="h-4 w-4 text-muted-foreground" />
+                        <Lock className="h-4 w-4 text-muted-foreground" />
                       </div>
                     )}
                   </div>

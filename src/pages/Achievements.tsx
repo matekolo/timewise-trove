@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Trophy, Award, Star, CheckIcon, LockIcon, Settings } from "lucide-react";
+import { Trophy, Award, Star, Check, Lock, Settings, SunIcon, MoonIcon } from "lucide-react";
 import Tile from "@/components/ui/Tile";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -25,7 +24,6 @@ const Achievements = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("all");
   
-  // Fetch user stats for achievement calculations
   const { data: tasks = [] } = useQuery({
     queryKey: ["achievement-tasks"],
     queryFn: async () => {
@@ -50,12 +48,10 @@ const Achievements = () => {
     },
   });
   
-  // Calculate stats for achievements
   const taskCompletedCount = tasks.filter((task: any) => task.completed).length;
   const longestStreak = habits.reduce((max: number, habit: any) => 
     Math.max(max, habit.streak || 0), 0);
   
-  // Example achievement data
   const achievementList: Achievement[] = [
     {
       id: "early-bird",
@@ -170,14 +166,14 @@ const Achievements = () => {
   
   const getAchievementIcon = (iconName: string) => {
     switch (iconName) {
-      case "sun": return <Sun className="h-5 w-5" />;
+      case "sun": return <SunIcon className="h-5 w-5" />;
       case "target": return <div className="h-5 w-5 bg-primary/20 rounded-full flex items-center justify-center"><div className="h-3 w-3 bg-primary rounded-full"></div></div>;
       case "award": return <Award className="h-5 w-5" />;
       case "flame": return <div className="h-5 w-5 text-orange-500">🔥</div>;
       case "feather": return <div className="h-5 w-5">✒️</div>;
       case "scissors": return <div className="h-5 w-5">✂️</div>;
       case "crown": return <div className="h-5 w-5 text-yellow-500">👑</div>;
-      case "moon": return <Moon className="h-5 w-5" />;
+      case "moon": return <MoonIcon className="h-5 w-5" />;
       default: return <Star className="h-5 w-5" />;
     }
   };
@@ -240,7 +236,7 @@ const Achievements = () => {
                     {achievement.unlocked ? (
                       <Trophy className="h-5 w-5" />
                     ) : (
-                      <LockIcon className="h-4 w-4" />
+                      <Lock className="h-4 w-4" />
                     )}
                   </div>
                   <div>

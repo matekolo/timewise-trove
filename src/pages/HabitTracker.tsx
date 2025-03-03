@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, X, MoreHorizontal, Trash2, Edit, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Plus, X, MoreHorizontal, Trash2, Edit, ThumbsUp, ThumbsDown, Check } from "lucide-react";
 import Tile from "@/components/ui/Tile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +21,8 @@ interface Habit {
   days: boolean[];
   type: "good" | "bad";
   user_id: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const HabitTracker = () => {
@@ -33,7 +34,6 @@ const HabitTracker = () => {
   const [activeFilter, setActiveFilter] = useState<"all" | "good" | "bad">("all");
   const queryClient = useQueryClient();
   
-  // Fetch habits from Supabase
   const fetchHabits = async (): Promise<Habit[]> => {
     const { data, error } = await supabase
       .from("habits")
@@ -45,7 +45,10 @@ const HabitTracker = () => {
       throw error;
     }
     
-    return data || [];
+    return (data || []).map(habit => ({
+      ...habit,
+      type: habit.type || "good"
+    })) as Habit[];
   };
   
   const { data: habits = [], isLoading, error } = useQuery({
@@ -53,7 +56,6 @@ const HabitTracker = () => {
     queryFn: fetchHabits,
   });
   
-  // Add a new habit
   const addHabitMutation = useMutation({
     mutationFn: async (habit: Omit<Habit, "id">) => {
       const { data, error } = await supabase
@@ -87,7 +89,6 @@ const HabitTracker = () => {
     },
   });
   
-  // Update a habit
   const updateHabitMutation = useMutation({
     mutationFn: async (habit: Partial<Habit> & { id: string }) => {
       const { data, error } = await supabase
@@ -113,7 +114,6 @@ const HabitTracker = () => {
     },
   });
   
-  // Delete a habit
   const deleteHabitMutation = useMutation({
     mutationFn: async (habitId: string) => {
       const { error } = await supabase
@@ -149,7 +149,6 @@ const HabitTracker = () => {
       return;
     }
     
-    // Get current user
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -162,7 +161,6 @@ const HabitTracker = () => {
     }
     
     if (editingHabit) {
-      // Update existing habit
       updateHabitMutation.mutate({
         id: editingHabit.id,
         name: newHabitName,
@@ -171,7 +169,6 @@ const HabitTracker = () => {
       });
       setEditingHabit(null);
     } else {
-      // Add new habit
       addHabitMutation.mutate({
         name: newHabitName,
         goal: newHabitGoal,
@@ -187,7 +184,6 @@ const HabitTracker = () => {
     const newDays = [...habit.days];
     newDays[dayIndex] = !newDays[dayIndex];
     
-    // Calculate streak
     let streak = 0;
     for (let i = 0; i < newDays.length; i++) {
       if (newDays[i]) {
@@ -221,7 +217,6 @@ const HabitTracker = () => {
   };
   
   const filteredHabits = habits.filter((habit: any) => {
-    // If type is not defined, default to "good"
     const habitType = habit.type || "good";
     if (activeFilter === "all") return true;
     return habitType === activeFilter;
@@ -457,7 +452,7 @@ const HabitTracker = () => {
                         habit.type === "bad" ? (
                           <X className="h-5 w-5" />
                         ) : (
-                          <CheckIcon className="h-5 w-5" />
+                          <Check className="h-5 w-5" />
                         )
                       ) : (
                         <Plus className="h-5 w-5" />
