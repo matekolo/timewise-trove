@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import Tile from "@/components/ui/Tile";
@@ -11,14 +11,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format, parseISO } from "date-fns";
 
 interface Event {
-  id: number;
+  id: string;
   title: string;
-  description: string;
-  date: Date;
-  time: string;
+  description: string | null;
+  date: string; // ISO string in database
+  time: string | null;
   type: "meeting" | "personal" | "deadline" | "other";
+  user_id: string;
 }
 
 const eventTypes = {
@@ -29,45 +33,103 @@ const eventTypes = {
 };
 
 const CalendarView = () => {
+  const queryClient = useQueryClient();
   const [date, setDate] = useState<Date | undefined>(new Date());
-  const [events, setEvents] = useState<Event[]>([
-    {
-      id: 1,
-      title: "Team meeting",
-      description: "Weekly team sync",
-      date: new Date(2023, 4, 15),
-      time: "10:00",
-      type: "meeting",
-    },
-    {
-      id: 2,
-      title: "Project deadline",
-      description: "Submit final deliverables",
-      date: new Date(2023, 4, 22),
-      time: "18:00",
-      type: "deadline",
-    },
-    {
-      id: 3,
-      title: "Dentist appointment",
-      description: "Regular checkup",
-      date: new Date(2023, 4, 18),
-      time: "14:30",
-      type: "personal",
-    },
-  ]);
-  
-  const [newEvent, setNewEvent] = useState<Omit<Event, "id">>({
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newEvent, setNewEvent] = useState<Omit<Event, "id" | "user_id">>({
     title: "",
     description: "",
-    date: new Date(),
+    date: new Date().toISOString(),
     time: "",
     type: "meeting",
   });
   
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  // Fetch events
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ["events"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("*");
+      
+      if (error) {
+        toast({
+          title: "Error fetching events",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+      
+      return data as Event[];
+    },
+  });
   
-  const addEvent = () => {
+  // Add a new event
+  const addEventMutation = useMutation({
+    mutationFn: async (event: Omit<Event, "id">) => {
+      const { data, error } = await supabase
+        .from("events")
+        .insert(event)
+        .select()
+        .single();
+      
+      if (error) {
+        toast({
+          title: "Error adding event",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+      
+      return data as Event;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      toast({
+        title: "Event added",
+        description: `${newEvent.title} has been added to your calendar.`,
+      });
+      
+      setNewEvent({
+        title: "",
+        description: "",
+        date: new Date().toISOString(),
+        time: "",
+        type: "meeting",
+      });
+      setIsDialogOpen(false);
+    },
+  });
+
+  // Delete event 
+  const deleteEventMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      const { error } = await supabase
+        .from("events")
+        .delete()
+        .eq("id", eventId);
+      
+      if (error) {
+        toast({
+          title: "Error deleting event",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      toast({
+        title: "Event deleted",
+        description: "The event has been deleted from your calendar.",
+      });
+    },
+  });
+  
+  const addEvent = async () => {
     if (newEvent.title.trim() === "") {
       toast({
         title: "Please enter an event title",
@@ -76,34 +138,40 @@ const CalendarView = () => {
       return;
     }
     
-    const event: Event = {
-      id: Date.now(),
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to add events",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    addEventMutation.mutate({
       ...newEvent,
-    };
-    
-    setEvents([...events, event]);
-    setNewEvent({
-      title: "",
-      description: "",
-      date: new Date(),
-      time: "",
-      type: "meeting",
-    });
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Event added",
-      description: `${newEvent.title} has been added to your calendar.`,
+      user_id: user.id,
     });
   };
   
-  const selectedDateEvents = events.filter(
-    (event) =>
-      date &&
-      event.date.getDate() === date.getDate() &&
-      event.date.getMonth() === date.getMonth() &&
-      event.date.getFullYear() === date.getFullYear()
-  );
+  const selectedDateEvents = events
+    .filter((event) => {
+      if (!date) return false;
+      
+      const eventDate = parseISO(event.date);
+      return (
+        eventDate.getDate() === date.getDate() &&
+        eventDate.getMonth() === date.getMonth() &&
+        eventDate.getFullYear() === date.getFullYear()
+      );
+    })
+    .sort((a, b) => {
+      if (!a.time) return 1;
+      if (!b.time) return -1;
+      return a.time.localeCompare(b.time);
+    });
   
   const previousMonth = () => {
     if (date) {
@@ -121,7 +189,8 @@ const CalendarView = () => {
     }
   };
   
-  const formatDate = (date: Date) => {
+  const formatDate = (dateString: string) => {
+    const date = parseISO(dateString);
     return date.toLocaleDateString("en-US", {
       weekday: "long",
       month: "long",
@@ -173,7 +242,7 @@ const CalendarView = () => {
                 <Textarea
                   id="event-description"
                   placeholder="Add details about this event"
-                  value={newEvent.description}
+                  value={newEvent.description || ""}
                   onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
                 />
               </div>
@@ -182,8 +251,12 @@ const CalendarView = () => {
                 <Label>Date</Label>
                 <Calendar
                   mode="single"
-                  selected={newEvent.date}
-                  onSelect={(date) => date && setNewEvent({ ...newEvent, date })}
+                  selected={parseISO(newEvent.date)}
+                  onSelect={(selectedDate) => {
+                    if (selectedDate) {
+                      setNewEvent({ ...newEvent, date: selectedDate.toISOString() });
+                    }
+                  }}
                   className="rounded-md border"
                 />
               </div>
@@ -193,7 +266,7 @@ const CalendarView = () => {
                 <Input
                   id="event-time"
                   type="time"
-                  value={newEvent.time}
+                  value={newEvent.time || ""}
                   onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })}
                 />
               </div>
@@ -234,7 +307,7 @@ const CalendarView = () => {
           <Tile contentClassName="p-0">
             <div className="p-4 border-b flex items-center justify-between">
               <h3 className="font-medium">
-                {date && new Date(date).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                {date && date.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
               </h3>
               <div className="flex gap-2">
                 <Button variant="outline" size="icon" onClick={previousMonth}>
@@ -256,41 +329,56 @@ const CalendarView = () => {
         </div>
         
         <div>
-          <Tile title={date ? formatDate(date) : "Select a date"}>
+          <Tile title={date ? date.toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          }) : "Select a date"}>
             <div className="space-y-4">
-              {selectedDateEvents.length > 0 ? (
-                selectedDateEvents
-                  .sort((a, b) => {
-                    if (!a.time) return 1;
-                    if (!b.time) return -1;
-                    return a.time.localeCompare(b.time);
-                  })
-                  .map((event, index) => (
-                    <motion.div
-                      key={event.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.1 }}
-                      className="p-3 rounded-md border border-border"
-                    >
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-medium">{event.title}</h4>
-                        <div className={`text-xs px-2 py-0.5 rounded-full ${eventTypes[event.type].color}`}>
-                          {eventTypes[event.type].label}
-                        </div>
+              {isLoading ? (
+                <div className="p-8 text-center">
+                  <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+                  <p className="text-sm text-muted-foreground mt-2">Loading events...</p>
+                </div>
+              ) : selectedDateEvents.length > 0 ? (
+                selectedDateEvents.map((event, index) => (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    className="p-3 rounded-md border border-border"
+                  >
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-medium">{event.title}</h4>
+                      <div className={`text-xs px-2 py-0.5 rounded-full ${eventTypes[event.type].color}`}>
+                        {eventTypes[event.type].label}
                       </div>
-                      
-                      {event.description && (
-                        <p className="text-sm text-gray-600 mt-1">{event.description}</p>
-                      )}
-                      
+                    </div>
+                    
+                    {event.description && (
+                      <p className="text-sm text-gray-600 mt-1">{event.description}</p>
+                    )}
+                    
+                    <div className="flex justify-between items-center mt-2">
                       {event.time && (
-                        <div className="mt-2 text-xs text-gray-500">
+                        <div className="text-xs text-gray-500">
                           {event.time}
                         </div>
                       )}
-                    </motion.div>
-                  ))
+                      
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-xs h-6 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => deleteEventMutation.mutate(event.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))
               ) : (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">No events for this day</p>

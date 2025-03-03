@@ -8,41 +8,199 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, subDays, subWeeks, subMonths, parseISO, isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { toast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+
+interface Task {
+  id: string;
+  title: string;
+  completed: boolean;
+  priority: string;
+  created_at: string;
+}
+
+interface Event {
+  id: string;
+  title: string;
+  type: string;
+  date: string;
+}
+
+interface Habit {
+  id: string;
+  name: string;
+  streak: number;
+}
 
 const Reports = () => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [timeRange, setTimeRange] = useState("week");
   
-  // Sample data for demonstration
-  const habitData = [
-    { name: "Mon", value: 2 },
-    { name: "Tue", value: 4 },
-    { name: "Wed", value: 3 },
-    { name: "Thu", value: 5 },
-    { name: "Fri", value: 3 },
-    { name: "Sat", value: 2 },
-    { name: "Sun", value: 1 },
-  ];
+  // Get the date range based on selected time range
+  const getDateRange = () => {
+    const today = new Date();
+    
+    switch (timeRange) {
+      case "day":
+        return { start: today, end: today };
+      case "week":
+        return { 
+          start: startOfWeek(today), 
+          end: endOfWeek(today) 
+        };
+      case "month":
+        return { 
+          start: startOfMonth(today), 
+          end: endOfMonth(today) 
+        };
+      case "year":
+        return { 
+          start: subMonths(today, 12), 
+          end: today 
+        };
+      default:
+        return { start: subDays(today, 7), end: today };
+    }
+  };
   
-  const productivityData = [
-    { name: "Mon", value: 60 },
-    { name: "Tue", value: 85 },
-    { name: "Wed", value: 75 },
-    { name: "Thu", value: 90 },
-    { name: "Fri", value: 80 },
-    { name: "Sat", value: 65 },
-    { name: "Sun", value: 45 },
-  ];
+  // Fetch tasks data
+  const { data: tasks = [] } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*");
+      
+      if (error) {
+        toast({
+          title: "Error fetching tasks",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+      
+      return data as Task[];
+    },
+  });
   
-  const categoryData = [
-    { name: "Work", value: 40 },
-    { name: "Personal", value: 25 },
-    { name: "Health", value: 15 },
-    { name: "Learning", value: 20 },
-  ];
+  // Fetch events data
+  const { data: events = [] } = useQuery({
+    queryKey: ["events"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("*");
+      
+      if (error) {
+        toast({
+          title: "Error fetching events",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+      
+      return data as Event[];
+    },
+  });
+  
+  // Fetch habits data
+  const { data: habits = [] } = useQuery({
+    queryKey: ["habits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("habits")
+        .select("*");
+      
+      if (error) {
+        toast({
+          title: "Error fetching habits",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+      
+      return data as Habit[];
+    },
+  });
+  
+  // Filter tasks by selected time range
+  const filteredTasks = tasks.filter(task => {
+    const { start, end } = getDateRange();
+    const taskDate = parseISO(task.created_at);
+    return isWithinInterval(taskDate, { start, end });
+  });
+  
+  // Generate habit data for chart
+  const habitData = habits
+    .sort((a, b) => (b.streak || 0) - (a.streak || 0))
+    .slice(0, 7)
+    .map(habit => ({
+      name: habit.name.length > 10 ? habit.name.slice(0, 10) + '...' : habit.name,
+      value: habit.streak || 0
+    }));
+  
+  // Generate productivity data (% of completed tasks per day)
+  const generateProductivityData = () => {
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    
+    // Calculate completion percentage for each day
+    return days.map(day => {
+      const dayTasks = filteredTasks.filter(task => {
+        const taskDate = parseISO(task.created_at);
+        return format(taskDate, 'EEE') === day;
+      });
+      
+      if (dayTasks.length === 0) return { name: day, value: 0 };
+      
+      const completedCount = dayTasks.filter(task => task.completed).length;
+      const percentage = Math.round((completedCount / dayTasks.length) * 100);
+      
+      return {
+        name: day,
+        value: percentage
+      };
+    });
+  };
+  
+  const productivityData = generateProductivityData();
+  
+  // Generate category data based on event types
+  const generateCategoryData = () => {
+    const categories: Record<string, number> = {};
+    
+    events.forEach(event => {
+      if (categories[event.type]) {
+        categories[event.type]++;
+      } else {
+        categories[event.type] = 1;
+      }
+    });
+    
+    return Object.entries(categories).map(([name, value]) => ({ 
+      name, 
+      value 
+    }));
+  };
+  
+  const categoryData = generateCategoryData();
+  
+  // Calculate overall statistics
+  const completedTasksCount = filteredTasks.filter(task => task.completed).length;
+  const totalTasksCount = filteredTasks.length;
+  const productivityScore = totalTasksCount > 0 
+    ? Math.round((completedTasksCount / totalTasksCount) * 100) 
+    : 0;
+  
+  // Find top habits based on streak
+  const topHabits = habits
+    .sort((a, b) => (b.streak || 0) - (a.streak || 0))
+    .slice(0, 2);
   
   const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"];
   
@@ -174,7 +332,7 @@ const Reports = () => {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={categoryData}
+                  data={categoryData.length > 0 ? categoryData : [{ name: "No data", value: 1 }]}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -206,34 +364,37 @@ const Reports = () => {
             <div className="grid grid-cols-2 gap-6">
               <div className="p-4 bg-green-50 rounded-md text-center">
                 <p className="text-green-600 font-medium text-sm">Productivity Score</p>
-                <h3 className="text-2xl font-bold text-green-700 mt-1">78%</h3>
-                <p className="text-xs text-green-600 mt-1">↑ 12% from last week</p>
+                <h3 className="text-2xl font-bold text-green-700 mt-1">{productivityScore}%</h3>
+                <p className="text-xs text-green-600 mt-1">Based on {totalTasksCount} tasks</p>
               </div>
               
               <div className="p-4 bg-blue-50 rounded-md text-center">
                 <p className="text-blue-600 font-medium text-sm">Completed Tasks</p>
-                <h3 className="text-2xl font-bold text-blue-700 mt-1">24</h3>
-                <p className="text-xs text-blue-600 mt-1">↑ 8 from last week</p>
+                <h3 className="text-2xl font-bold text-blue-700 mt-1">{completedTasksCount}</h3>
+                <p className="text-xs text-blue-600 mt-1">
+                  {totalTasksCount > 0 
+                    ? `${Math.round((completedTasksCount / totalTasksCount) * 100)}% completion rate` 
+                    : 'No tasks yet'}
+                </p>
               </div>
             </div>
             
             <div className="space-y-3">
               <h4 className="font-medium text-sm">Top Habits</h4>
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">No smoking</span>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <span className="bg-green-500 w-2 h-2 rounded-full"></span>
-                    5 days streak
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Daily meditation</span>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <span className="bg-green-500 w-2 h-2 rounded-full"></span>
-                    3 days streak
-                  </div>
-                </div>
+                {topHabits.length > 0 ? (
+                  topHabits.map(habit => (
+                    <div key={habit.id} className="flex items-center justify-between">
+                      <span className="text-sm">{habit.name}</span>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span className="bg-green-500 w-2 h-2 rounded-full"></span>
+                        {habit.streak} days streak
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No habits tracked yet</p>
+                )}
               </div>
             </div>
           </div>

@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Plus, Clock, Calendar, Trash2, Check, CalendarClock } from "lucide-react";
 import Tile from "@/components/ui/Tile";
@@ -10,54 +10,141 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Task {
-  id: number;
+  id: string;
   title: string;
-  description: string;
-  time: string;
+  description: string | null;
+  time: string | null;
   priority: "low" | "medium" | "high";
   completed: boolean;
+  user_id: string;
 }
 
 const Planner = () => {
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: 1,
-      title: "Team meeting",
-      description: "Weekly team status meeting",
-      time: "09:00",
-      priority: "high",
-      completed: false,
-    },
-    {
-      id: 2,
-      title: "Review project proposal",
-      description: "Go through the new client proposal",
-      time: "11:30",
-      priority: "medium",
-      completed: false,
-    },
-    {
-      id: 3,
-      title: "Lunch break",
-      description: "",
-      time: "13:00",
-      priority: "low",
-      completed: false,
-    },
-  ]);
-  
-  const [newTask, setNewTask] = useState<Omit<Task, "id" | "completed">>({
+  const queryClient = useQueryClient();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newTask, setNewTask] = useState<Omit<Task, "id" | "user_id" | "completed">>({
     title: "",
     description: "",
     time: "",
     priority: "medium",
   });
   
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  // Fetch tasks
+  const { data: tasks = [], isLoading } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .order("time", { ascending: true });
+      
+      if (error) {
+        toast({
+          title: "Error fetching tasks",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+      
+      return data as Task[];
+    },
+  });
   
-  const addTask = () => {
+  // Add a new task
+  const addTaskMutation = useMutation({
+    mutationFn: async (task: Omit<Task, "id" | "completed">) => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert(task)
+        .select()
+        .single();
+      
+      if (error) {
+        toast({
+          title: "Error adding task",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+      
+      return data as Task;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast({
+        title: "Task added",
+        description: `${newTask.title} has been added to your planner.`,
+      });
+      
+      setNewTask({
+        title: "",
+        description: "",
+        time: "",
+        priority: "medium",
+      });
+      setIsDialogOpen(false);
+    },
+  });
+  
+  // Toggle task completion
+  const toggleCompleteMutation = useMutation({
+    mutationFn: async ({ taskId, completed }: { taskId: string; completed: boolean }) => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .update({ completed })
+        .eq("id", taskId)
+        .select()
+        .single();
+      
+      if (error) {
+        toast({
+          title: "Error updating task",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+      
+      return data as Task;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+  
+  // Delete task
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase
+        .from("tasks")
+        .delete()
+        .eq("id", taskId);
+      
+      if (error) {
+        toast({
+          title: "Error deleting task",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast({
+        title: "Task deleted",
+        description: "The task has been deleted from your planner.",
+      });
+    },
+  });
+  
+  const addTask = async () => {
     if (newTask.title.trim() === "") {
       toast({
         title: "Please enter a task title",
@@ -66,44 +153,33 @@ const Planner = () => {
       return;
     }
     
-    const task: Task = {
-      id: Date.now(),
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to add tasks",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    addTaskMutation.mutate({
       ...newTask,
-      completed: false,
-    };
-    
-    setTasks([...tasks, task]);
-    setNewTask({
-      title: "",
-      description: "",
-      time: "",
-      priority: "medium",
-    });
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Task added",
-      description: `${newTask.title} has been added to your planner.`,
+      user_id: user.id,
     });
   };
   
-  const toggleComplete = (taskId: number) => {
-    setTasks(
-      tasks.map((task) => {
-        if (task.id === taskId) {
-          return { ...task, completed: !task.completed };
-        }
-        return task;
-      })
-    );
+  const toggleComplete = (taskId: string, currentState: boolean) => {
+    toggleCompleteMutation.mutate({ 
+      taskId, 
+      completed: !currentState 
+    });
   };
   
-  const deleteTask = (taskId: number) => {
-    setTasks(tasks.filter((task) => task.id !== taskId));
-    toast({
-      title: "Task deleted",
-      description: "The task has been deleted from your planner.",
-    });
+  const deleteTask = (taskId: string) => {
+    deleteTaskMutation.mutate(taskId);
   };
   
   const getPriorityClass = (priority: string) => {
@@ -162,7 +238,7 @@ const Planner = () => {
                 <Textarea
                   id="task-description"
                   placeholder="Add details about this task"
-                  value={newTask.description}
+                  value={newTask.description || ""}
                   onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                 />
               </div>
@@ -172,7 +248,7 @@ const Planner = () => {
                 <Input
                   id="task-time"
                   type="time"
-                  value={newTask.time}
+                  value={newTask.time || ""}
                   onChange={(e) => setNewTask({ ...newTask, time: e.target.value })}
                 />
               </div>
@@ -213,69 +289,74 @@ const Planner = () => {
           contentClassName="p-0"
         >
           <div className="divide-y">
-            {tasks
-              .sort((a, b) => {
-                if (!a.time) return 1;
-                if (!b.time) return -1;
-                return a.time.localeCompare(b.time);
-              })
-              .map((task, index) => (
-                <motion.div
-                  key={task.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  className={`p-4 flex items-start gap-4 transition-colors ${
-                    task.completed ? "bg-gray-50" : ""
-                  }`}
-                >
-                  <button
-                    onClick={() => toggleComplete(task.id)}
-                    className={`w-5 h-5 rounded-full border flex-shrink-0 mt-1 ${
-                      task.completed
-                        ? "bg-primary border-primary text-white flex items-center justify-center"
-                        : "border-gray-300"
+            {isLoading ? (
+              <div className="p-8 text-center">
+                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+                <p className="text-sm text-muted-foreground mt-2">Loading tasks...</p>
+              </div>
+            ) : tasks.length > 0 ? (
+              tasks
+                .sort((a, b) => {
+                  if (!a.time) return 1;
+                  if (!b.time) return -1;
+                  return a.time.localeCompare(b.time);
+                })
+                .map((task, index) => (
+                  <motion.div
+                    key={task.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    className={`p-4 flex items-start gap-4 transition-colors ${
+                      task.completed ? "bg-gray-50" : ""
                     }`}
                   >
-                    {task.completed && <Check className="h-3 w-3" />}
-                  </button>
-                  
-                  <div className="flex-1">
-                    <div className="flex justify-between">
-                      <h3 className={`font-medium ${task.completed ? "line-through text-muted-foreground" : ""}`}>
-                        {task.title}
-                      </h3>
-                      <button
-                        onClick={() => deleteTask(task.id)}
-                        className="text-gray-400 hover:text-destructive transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => toggleComplete(task.id, task.completed)}
+                      className={`w-5 h-5 rounded-full border flex-shrink-0 mt-1 ${
+                        task.completed
+                          ? "bg-primary border-primary text-white flex items-center justify-center"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      {task.completed && <Check className="h-3 w-3" />}
+                    </button>
                     
-                    {task.description && (
-                      <p className={`text-sm mt-1 ${task.completed ? "line-through text-muted-foreground" : "text-gray-600"}`}>
-                        {task.description}
-                      </p>
-                    )}
-                    
-                    <div className="flex mt-2 gap-2">
-                      {task.time && (
-                        <div className="flex items-center text-xs text-gray-500 gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>{task.time}</span>
-                        </div>
+                    <div className="flex-1">
+                      <div className="flex justify-between">
+                        <h3 className={`font-medium ${task.completed ? "line-through text-muted-foreground" : ""}`}>
+                          {task.title}
+                        </h3>
+                        <button
+                          onClick={() => deleteTask(task.id)}
+                          className="text-gray-400 hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      
+                      {task.description && (
+                        <p className={`text-sm mt-1 ${task.completed ? "line-through text-muted-foreground" : "text-gray-600"}`}>
+                          {task.description}
+                        </p>
                       )}
                       
-                      <div className={`text-xs px-2 py-0.5 rounded-full ${getPriorityClass(task.priority)}`}>
-                        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} priority
+                      <div className="flex mt-2 gap-2">
+                        {task.time && (
+                          <div className="flex items-center text-xs text-gray-500 gap-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{task.time}</span>
+                          </div>
+                        )}
+                        
+                        <div className={`text-xs px-2 py-0.5 rounded-full ${getPriorityClass(task.priority)}`}>
+                          {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} priority
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
-              
-            {tasks.length === 0 && (
+                  </motion.div>
+                ))
+            ) : (
               <div className="py-12 text-center">
                 <CalendarClock className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-lg font-medium">No tasks scheduled</h3>
@@ -292,8 +373,8 @@ const Planner = () => {
               <p className="text-sm text-muted-foreground">
                 Calendar integration will be available soon
               </p>
-              <Button variant="outline" size="sm" className="mt-4">
-                Connect calendar
+              <Button variant="outline" size="sm" className="mt-4" onClick={() => window.location.href = "/calendar"}>
+                Go to calendar
               </Button>
             </div>
           </Tile>
