@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Trophy, Award, Star, Check, Lock, Settings, SunIcon, MoonIcon } from "lucide-react";
@@ -8,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Achievement {
   id: string;
@@ -19,11 +18,13 @@ interface Achievement {
   icon: string;
   progress: number;
   unlocked: boolean;
+  claimed?: boolean;
 }
 
 const Achievements = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const queryClient = useQueryClient();
   
   const { data: tasks = [] } = useQuery({
     queryKey: ["achievement-tasks"],
@@ -47,6 +48,67 @@ const Achievements = () => {
       if (error) throw error;
       return data;
     },
+  });
+  
+  const { data: userAchievements = [], isLoading: loadingAchievements } = useQuery({
+    queryKey: ["user-achievements"],
+    queryFn: async () => {
+      const { data: achievementsData, error } = await supabase
+        .from("user_achievements")
+        .select("*")
+        .eq("user_id", (await supabase.auth.getUser()).data.user?.id);
+      
+      if (error) throw error;
+      return achievementsData || [];
+    },
+  });
+  
+  const claimAchievementMutation = useMutation({
+    mutationFn: async (achievementId: string) => {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) throw new Error("Not authenticated");
+      
+      const { data: existing } = await supabase
+        .from("user_achievements")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("achievement_id", achievementId)
+        .single();
+      
+      if (existing && existing.claimed) {
+        return existing;
+      }
+      
+      if (existing) {
+        const { data, error } = await supabase
+          .from("user_achievements")
+          .update({ claimed: true })
+          .eq("user_id", user.id)
+          .eq("achievement_id", achievementId)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return data;
+      } else {
+        const { data, error } = await supabase
+          .from("user_achievements")
+          .insert({
+            user_id: user.id,
+            achievement_id: achievementId,
+            claimed: true,
+            unlocked_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return data;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-achievements"] });
+    }
   });
   
   const taskCompletedCount = tasks.filter((task: any) => task.completed).length;
@@ -142,7 +204,18 @@ const Achievements = () => {
     { id: "locked", name: "Locked" }
   ];
   
-  const filteredAchievements = achievementList.filter(achievement => {
+  const enhancedAchievements = achievementList.map(achievement => {
+    const userAchievement = userAchievements.find(
+      (ua: any) => ua.achievement_id === achievement.id
+    );
+    
+    return {
+      ...achievement,
+      claimed: userAchievement?.claimed || false
+    };
+  });
+  
+  const filteredAchievements = enhancedAchievements.filter(achievement => {
     if (selectedCategory === "all") return true;
     if (selectedCategory === "unlocked") return achievement.unlocked;
     if (selectedCategory === "locked") return !achievement.unlocked;
@@ -159,9 +232,71 @@ const Achievements = () => {
       return;
     }
     
+    if (achievement.claimed) {
+      toast({
+        title: "Already claimed",
+        description: `You've already claimed this reward.`,
+      });
+      return;
+    }
+    
+    claimAchievementMutation.mutate(achievement.id, {
+      onSuccess: () => {
+        applyRewardEffect(achievement);
+        
+        toast({
+          title: "Reward claimed!",
+          description: `You've claimed: ${achievement.reward}`,
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: "Error claiming reward",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    });
+  };
+  
+  const applyRewardEffect = (achievement: Achievement) => {
+    const currentSettings = localStorage.getItem('user-settings') ? 
+      JSON.parse(localStorage.getItem('user-settings') || '{}') : 
+      {};
+    
+    switch (achievement.id) {
+      case "early-bird":
+        localStorage.setItem('user-settings', JSON.stringify({
+          ...currentSettings,
+          themeColor: 'morning'
+        }));
+        break;
+      case "night-owl":
+        localStorage.setItem('user-settings', JSON.stringify({
+          ...currentSettings,
+          themeColor: 'night',
+          darkMode: true
+        }));
+        break;
+      case "zen-mind":
+        localStorage.setItem('user-settings', JSON.stringify({
+          ...currentSettings,
+          avatar: 'zen'
+        }));
+        break;
+      case "focus-master":
+        localStorage.setItem('user-settings', JSON.stringify({
+          ...currentSettings,
+          avatar: 'productivity'
+        }));
+        break;
+      default:
+        break;
+    }
+    
     toast({
-      title: "Reward claimed!",
-      description: `You've claimed: ${achievement.reward}`,
+      title: "Reward applied!",
+      description: "Visit the Settings page to view your reward",
     });
   };
   
@@ -235,7 +370,7 @@ const Achievements = () => {
                       : 'bg-gray-100 text-gray-400'
                   }`}>
                     {achievement.unlocked ? (
-                      <Trophy className="h-5 w-5" />
+                      achievement.claimed ? <Check className="h-5 w-5" /> : <Trophy className="h-5 w-5" />
                     ) : (
                       <Lock className="h-4 w-4" />
                     )}
@@ -273,12 +408,19 @@ const Achievements = () => {
                 </div>
                 
                 <Button
-                  variant={achievement.unlocked ? "default" : "outline"}
+                  variant={achievement.unlocked ? (achievement.claimed ? "outline" : "default") : "outline"}
                   size="sm"
                   className={achievement.unlocked ? "" : "opacity-50"}
                   onClick={() => claimReward(achievement)}
+                  disabled={claimAchievementMutation.isPending}
                 >
-                  {achievement.unlocked ? "Claim Reward" : "Locked"}
+                  {claimAchievementMutation.isPending && achievement.id === claimAchievementMutation.variables ? 
+                    "Processing..." : 
+                    achievement.claimed ? 
+                      "Claimed" : 
+                      achievement.unlocked ? 
+                        "Claim Reward" : 
+                        "Locked"}
                 </Button>
               </div>
             </Tile>

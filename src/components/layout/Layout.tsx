@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,7 +14,8 @@ import {
   X,
   BellRing,
   LogOut,
-  Trophy
+  Trophy,
+  Settings as SettingsIcon
 } from "lucide-react";
 import WeatherWidget from "../ui/WeatherWidget";
 import { Button } from "@/components/ui/button";
@@ -109,6 +111,7 @@ const Layout = () => {
     { path: "/calendar", label: "Calendar", icon: Calendar },
     { path: "/reports", label: "Reports", icon: BarChart },
     { path: "/achievements", label: "Achievements", icon: Trophy },
+    { path: "/settings", label: "Settings", icon: SettingsIcon },
   ];
 
   if (loading) {

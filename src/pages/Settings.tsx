@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Settings as SettingsIcon, User, PaletteIcon, Bell, Moon, Sun, Globe, Volume2, Lock } from "lucide-react";
 import Tile from "@/components/ui/Tile";
@@ -9,24 +10,71 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
+  // Get initial settings from localStorage or default values
+  const getInitialSettings = () => {
+    const savedSettings = localStorage.getItem('user-settings');
+    return savedSettings ? JSON.parse(savedSettings) : {
+      darkMode: false,
+      notifications: true,
+      soundEffects: true,
+      language: "english",
+      themeColor: "blue",
+      avatar: "default",
+      dailyReminderTime: "08:00"
+    };
+  };
+  
   const [activeTab, setActiveTab] = useState("appearance");
-  const [darkMode, setDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState(true);
-  const [soundEffects, setSoundEffects] = useState(true);
-  const [language, setLanguage] = useState("english");
-  const [themeColor, setThemeColor] = useState("blue");
+  const [settings, setSettings] = useState(getInitialSettings());
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  
+  // Load user data
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setEmail(user.email || "");
+        // Get user's display name from metadata or email
+        setDisplayName(user.user_metadata?.name || user.email?.split('@')[0] || "");
+      }
+    };
+    
+    loadUserProfile();
+  }, []);
+  
+  // Apply dark mode when settings change
+  useEffect(() => {
+    if (settings.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    
+    // Save settings to localStorage whenever they change
+    localStorage.setItem('user-settings', JSON.stringify(settings));
+  }, [settings]);
   
   const { data: achievements = [] } = useQuery({
     queryKey: ["user-achievements"],
     queryFn: async () => {
+      // Get user achievements that are unlocked
+      const { data: userAchievements, error } = await supabase
+        .from("user_achievements")
+        .select("*")
+        .eq("user_id", (await supabase.auth.getUser()).data.user?.id);
+      
+      if (error) throw error;
+      
       return [
-        { id: "early-bird", name: "Early Bird", unlocked: true, reward: "Morning Theme" },
-        { id: "night-owl", name: "Night Owl", unlocked: false, reward: "Dark Theme" },
-        { id: "zen-mind", name: "Zen Mind", unlocked: false, reward: "Zen Avatar" }
+        { id: "early-bird", name: "Early Bird", unlocked: userAchievements?.some(ua => ua.achievement_id === "early-bird"), reward: "Morning Theme" },
+        { id: "night-owl", name: "Night Owl", unlocked: userAchievements?.some(ua => ua.achievement_id === "night-owl"), reward: "Dark Theme" },
+        { id: "zen-mind", name: "Zen Mind", unlocked: userAchievements?.some(ua => ua.achievement_id === "zen-mind"), reward: "Zen Avatar" },
+        { id: "focus-master", name: "Focus Master", unlocked: userAchievements?.some(ua => ua.achievement_id === "focus-master"), reward: "Productivity Avatar" }
       ];
     }
   });
@@ -45,11 +93,75 @@ const Settings = () => {
     { id: "productivity", name: "Productivity Pro", requiresAchievement: true, achievement: "focus-master" }
   ];
   
+  const updateUserProfileMutation = useMutation({
+    mutationFn: async ({ displayName }: { displayName: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+      
+      const { data, error } = await supabase.auth.updateUser({
+        data: { name: displayName }
+      });
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully."
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+  
+  const resetPasswordMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Password reset email sent",
+        description: "Check your email for the password reset link."
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+  
   const saveSettings = () => {
+    // Save settings to localStorage
+    localStorage.setItem('user-settings', JSON.stringify(settings));
+    
+    // Update user profile if display name changed
+    updateUserProfileMutation.mutate({ displayName });
+    
     toast({
       title: "Settings saved",
       description: "Your preferences have been updated.",
     });
+    
+    // Apply theme immediately
+    if (settings.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   };
   
   const isThemeAvailable = (themeId: string) => {
@@ -70,6 +182,14 @@ const Settings = () => {
     return achievements.some(a => 
       a.id === avatar.achievement && a.unlocked
     );
+  };
+  
+  // Handle settings changes
+  const updateSetting = (key: string, value: any) => {
+    setSettings(prev => ({
+      ...prev,
+      [key]: value
+    }));
   };
 
   return (
@@ -111,8 +231,8 @@ const Settings = () => {
                 </div>
                 <Switch
                   id="dark-mode"
-                  checked={darkMode}
-                  onCheckedChange={setDarkMode}
+                  checked={settings.darkMode}
+                  onCheckedChange={(checked) => updateSetting('darkMode', checked)}
                 />
               </div>
               
@@ -122,9 +242,9 @@ const Settings = () => {
                   {availableThemes.map(theme => (
                     <button
                       key={theme.id}
-                      onClick={() => isThemeAvailable(theme.id) && setThemeColor(theme.id)}
+                      onClick={() => isThemeAvailable(theme.id) && updateSetting('themeColor', theme.id)}
                       className={`relative w-full aspect-square rounded-md border transition-all ${
-                        themeColor === theme.id 
+                        settings.themeColor === theme.id 
                           ? 'ring-2 ring-primary ring-offset-2' 
                           : isThemeAvailable(theme.id) ? 'hover:border-primary/50' : 'opacity-40 cursor-not-allowed'
                       }`}
@@ -163,8 +283,8 @@ const Settings = () => {
               <div className="space-y-3">
                 <Label>Language</Label>
                 <Select
-                  value={language}
-                  onValueChange={setLanguage}
+                  value={settings.language}
+                  onValueChange={(value) => updateSetting('language', value)}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select language" />
@@ -184,11 +304,14 @@ const Settings = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                 {availableAvatars.map(avatar => (
-                  <div
+                  <button
                     key={avatar.id}
+                    onClick={() => isAvatarAvailable(avatar.id) && updateSetting('avatar', avatar.id)}
                     className={`relative rounded-full aspect-square border overflow-hidden ${
-                      !isAvatarAvailable(avatar.id) ? 'opacity-40' : ''
+                      !isAvatarAvailable(avatar.id) ? 'opacity-40 cursor-not-allowed' : 
+                      settings.avatar === avatar.id ? 'ring-2 ring-primary ring-offset-2' : ''
                     }`}
+                    disabled={!isAvatarAvailable(avatar.id)}
                     title={
                       !isAvatarAvailable(avatar.id) 
                         ? `Unlock by completing achievement` 
@@ -205,7 +328,7 @@ const Settings = () => {
                         <Lock className="h-4 w-4 text-muted-foreground" />
                       </div>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -227,8 +350,8 @@ const Settings = () => {
                 </div>
                 <Switch
                   id="notifications"
-                  checked={notifications}
-                  onCheckedChange={setNotifications}
+                  checked={settings.notifications}
+                  onCheckedChange={(checked) => updateSetting('notifications', checked)}
                 />
               </div>
               
@@ -241,14 +364,18 @@ const Settings = () => {
                 </div>
                 <Switch
                   id="sound-effects"
-                  checked={soundEffects}
-                  onCheckedChange={setSoundEffects}
+                  checked={settings.soundEffects}
+                  onCheckedChange={(checked) => updateSetting('soundEffects', checked)}
                 />
               </div>
               
               <div className="space-y-3">
                 <Label>Daily Reminder Time</Label>
-                <Input type="time" defaultValue="08:00" />
+                <Input 
+                  type="time" 
+                  value={settings.dailyReminderTime}
+                  onChange={(e) => updateSetting('dailyReminderTime', e.target.value)}
+                />
                 <p className="text-xs text-muted-foreground">
                   Set a daily reminder to check your tasks
                 </p>
@@ -262,17 +389,36 @@ const Settings = () => {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="display-name">Display Name</Label>
-                <Input id="display-name" placeholder="Your name" />
+                <Input 
+                  id="display-name" 
+                  placeholder="Your name" 
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                />
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="your.email@example.com" />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="your.email@example.com" 
+                  value={email}
+                  disabled
+                />
+                <p className="text-xs text-muted-foreground">
+                  Email cannot be changed
+                </p>
               </div>
               
               <div className="pt-4 flex justify-end">
-                <Button variant="outline" className="mr-2">
-                  Reset Password
+                <Button 
+                  variant="outline" 
+                  className="mr-2"
+                  onClick={() => resetPasswordMutation.mutate()}
+                  disabled={resetPasswordMutation.isPending}
+                >
+                  {resetPasswordMutation.isPending ? "Sending..." : "Reset Password"}
                 </Button>
                 <Button variant="destructive">
                   Delete Account
@@ -284,8 +430,11 @@ const Settings = () => {
       </Tabs>
       
       <div className="flex justify-end">
-        <Button onClick={saveSettings}>
-          Save Settings
+        <Button 
+          onClick={saveSettings}
+          disabled={updateUserProfileMutation.isPending}
+        >
+          {updateUserProfileMutation.isPending ? "Saving..." : "Save Settings"}
         </Button>
       </div>
     </div>
