@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Plus, Filter, Check, Trash2, ArrowUp, ArrowDown, CalendarIcon, Tag } from "lucide-react";
@@ -83,9 +84,11 @@ const Planner = () => {
         throw error;
       }
       
+      // Since category might not be in the database response, ensure it has a default
+      const completeData = data as any;
       return {
-        ...data,
-        category: data.category || "work"
+        ...completeData,
+        category: completeData.category || "work"
       } as Task;
     },
     onSuccess: () => {
@@ -127,9 +130,11 @@ const Planner = () => {
         throw error;
       }
       
+      // Since category might not be in the database response, ensure it has a default
+      const completeData = data as any;
       return {
-        ...data,
-        category: data.category || "work"
+        ...completeData,
+        category: completeData.category || "work"
       } as Task;
     },
     onSuccess: () => {
