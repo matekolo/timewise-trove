@@ -1,6 +1,7 @@
+
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Filter, Check, Trash2, ArrowUp, ArrowDown, CalendarIcon, Tag } from "lucide-react";
+import { Plus, Filter, Check, Trash2, ArrowUp, ArrowDown, CalendarIcon, Tag, Clock } from "lucide-react";
 import Tile from "@/components/ui/Tile";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -13,6 +14,14 @@ import { format } from "date-fns";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 
 interface Task {
   id: string;
@@ -24,18 +33,32 @@ interface Task {
   created_at?: string;
   updated_at?: string;
   time?: string;
+  category?: string;
 }
+
+const taskCategories = [
+  { value: "work", label: "Work" },
+  { value: "personal", label: "Personal" },
+  { value: "health", label: "Health" },
+  { value: "education", label: "Education" },
+  { value: "finance", label: "Finance" },
+  { value: "general", label: "General" },
+];
 
 const Planner = () => {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [date, setDate] = useState<Date | undefined>(new Date());
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [timeInput, setTimeInput] = useState("12:00");
   const [newTask, setNewTask] = useState<Partial<Task>>({
     title: "",
     description: "",
     priority: "medium",
     completed: false,
+    category: "general",
   });
 
   const { data: tasks = [], isLoading } = useQuery({
@@ -92,6 +115,7 @@ const Planner = () => {
         description: "",
         priority: "medium",
         completed: false,
+        category: "general",
       });
       setIsDialogOpen(false);
     },
@@ -172,10 +196,22 @@ const Planner = () => {
       return;
     }
     
-    addTaskMutation.mutate({
+    const taskToAdd: Omit<Task, "id"> = {
       ...newTask as Omit<Task, "id">,
       user_id: user.id,
-    });
+    };
+    
+    // Add time if date is selected
+    if (date) {
+      const dateObj = new Date(date);
+      if (showTimePicker && timeInput) {
+        const [hours, minutes] = timeInput.split(':').map(Number);
+        dateObj.setHours(hours, minutes);
+      }
+      taskToAdd.time = dateObj.toISOString();
+    }
+    
+    addTaskMutation.mutate(taskToAdd);
   };
 
   const handleToggleTask = (task: Task) => {
@@ -202,13 +238,36 @@ const Planner = () => {
     }
   };
 
+  const getCategoryColor = (category?: string) => {
+    switch (category) {
+      case "work":
+        return "bg-blue-100 text-blue-800";
+      case "personal":
+        return "bg-purple-100 text-purple-800";
+      case "health":
+        return "bg-green-100 text-green-800";
+      case "education":
+        return "bg-indigo-100 text-indigo-800";
+      case "finance":
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
   const filteredTasks = tasks
     .filter(task => {
+      // First apply the main filter
       if (filter === "all") return true;
       if (filter === "completed") return task.completed;
       if (filter === "incomplete") return !task.completed;
       if (filter === "high") return task.priority === "high";
       return true;
+    })
+    .filter(task => {
+      // Then apply the category filter if it's not "all"
+      if (categoryFilter === "all") return true;
+      return task.category === categoryFilter;
     })
     .sort((a, b) => {
       const priorityOrder = { high: 0, medium: 1, low: 2 };
@@ -288,6 +347,76 @@ const Planner = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="task-category">Category</Label>
+                  <Select
+                    value={newTask.category}
+                    onValueChange={(value) => 
+                      setNewTask({ ...newTask, category: value })
+                    }
+                  >
+                    <SelectTrigger id="task-category">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {taskCategories.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Due Date & Time (optional)</Label>
+                <div className="flex flex-col gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="justify-start text-left font-normal w-full"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? format(date, "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={setDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  
+                  {date && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowTimePicker(!showTimePicker)}
+                        className="flex items-center gap-1"
+                      >
+                        <Clock className="h-4 w-4" />
+                        {showTimePicker ? "Hide time" : "Add time"}
+                      </Button>
+                      
+                      {showTimePicker && (
+                        <Input
+                          type="time"
+                          value={timeInput}
+                          onChange={(e) => setTimeInput(e.target.value)}
+                          className="max-w-[120px]"
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             
@@ -301,35 +430,61 @@ const Planner = () => {
         </Dialog>
       </div>
       
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant={filter === "all" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilter("all")}
-        >
-          All
-        </Button>
-        <Button
-          variant={filter === "completed" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilter("completed")}
-        >
-          Completed
-        </Button>
-        <Button
-          variant={filter === "incomplete" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilter("incomplete")}
-        >
-          Incomplete
-        </Button>
-        <Button
-          variant={filter === "high" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilter("high")}
-        >
-          High Priority
-        </Button>
+      <div className="flex justify-between items-center">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={filter === "all" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter("all")}
+          >
+            All
+          </Button>
+          <Button
+            variant={filter === "completed" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter("completed")}
+          >
+            Completed
+          </Button>
+          <Button
+            variant={filter === "incomplete" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter("incomplete")}
+          >
+            Incomplete
+          </Button>
+          <Button
+            variant={filter === "high" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter("high")}
+          >
+            High Priority
+          </Button>
+        </div>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="flex items-center gap-1">
+              <Tag className="h-4 w-4" />
+              <span>Category</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuLabel>Filter by category</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setCategoryFilter("all")}>
+              All Categories
+            </DropdownMenuItem>
+            {taskCategories.map((category) => (
+              <DropdownMenuItem 
+                key={category.value}
+                onClick={() => setCategoryFilter(category.value)}
+              >
+                {category.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       
       <Tile className="p-0">
@@ -369,6 +524,11 @@ const Planner = () => {
                       <div className={`text-xs px-1.5 py-0.5 rounded-full ${getPriorityColor(task.priority)}`}>
                         {task.priority}
                       </div>
+                      {task.category && (
+                        <div className={`text-xs px-1.5 py-0.5 rounded-full ${getCategoryColor(task.category)}`}>
+                          {task.category}
+                        </div>
+                      )}
                     </div>
                     
                     {task.description && (
@@ -379,6 +539,8 @@ const Planner = () => {
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <CalendarIcon className="h-3 w-3" />
                         <span>{format(new Date(task.time), "PPP")}</span>
+                        <Clock className="h-3 w-3 ml-2" />
+                        <span>{format(new Date(task.time), "p")}</span>
                       </div>
                     )}
                   </div>
