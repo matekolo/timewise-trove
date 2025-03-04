@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays, parseISO } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays, parseISO, isSameDay } from "date-fns";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -143,7 +143,9 @@ const Reports = () => {
   const filteredTasks = tasks.filter(task => {
     const { start, end } = getDateRange();
     const taskDate = parseISO(task.created_at);
-    return isWithinInterval(taskDate, { start, end });
+    const isInRange = isWithinInterval(taskDate, { start, end });
+    console.log(`Filtering task "${task.title}" (${format(taskDate, "yyyy-MM-dd HH:mm")}): ${isInRange ? "IN RANGE" : "OUT OF RANGE"} (${format(start, "yyyy-MM-dd")} to ${format(end, "yyyy-MM-dd")})`);
+    return isInRange;
   });
   
   // Format habit data for chart
@@ -186,9 +188,10 @@ const Reports = () => {
       console.log(`\nProcessing ${dayName}, ${format(dayDate, "yyyy-MM-dd")}`);
       console.log(`  Range: ${format(dayStart, "yyyy-MM-dd HH:mm:ss")} to ${format(dayEnd, "yyyy-MM-dd HH:mm:ss")}`);
       
-      // Get tasks for this day by comparing their created_at date
+      // Get tasks for this day using direct date comparison
       const dayTasks = tasks.filter(task => {
         const taskDate = parseISO(task.created_at);
+        // Check if the task falls within this day's time range
         const taskInDay = taskDate >= dayStart && taskDate <= dayEnd;
         
         if (taskInDay) {
@@ -328,12 +331,14 @@ const Reports = () => {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
-              <CalendarUI
-                mode="single"
-                selected={date}
-                onSelect={handleDateChange}
-                initialFocus
-              />
+              <div className="calendar-container">
+                <CalendarUI
+                  mode="single"
+                  selected={date}
+                  onSelect={handleDateChange}
+                  initialFocus
+                />
+              </div>
             </PopoverContent>
           </Popover>
           
