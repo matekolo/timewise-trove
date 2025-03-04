@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,7 +34,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       return data || [];
     },
     enabled: settings.notifications && notificationPermission === "granted",
-    refetchInterval: 60000,
+    refetchInterval: 60000, // Refetch every minute
   });
 
   useEffect(() => {
@@ -85,37 +86,52 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     };
   }, [settings.notifications, settings.dailyReminderTime, notificationPermission]);
 
+  // This is the critical effect for task notifications
   useEffect(() => {
-    if (settings.notifications && notificationPermission === "granted" && upcomingTasks.length > 0) {
-      Object.values(taskNotificationTimeoutsIds).forEach(id => {
-        clearTimeout(id);
-      });
-      
-      const newTimeoutIds: Record<string, number> = {};
-      
-      upcomingTasks.forEach(task => {
-        if (task.time) {
-          const taskTime = new Date(task.time);
-          const now = new Date();
-          const delay = taskTime.getTime() - now.getTime();
-          
-          if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
-            console.log(`Scheduling notification for task "${task.title}" in ${Math.round(delay/1000/60)} minutes`);
-            
-            const id = window.setTimeout(() => {
-              triggerTaskNotification(task);
-            }, delay);
-            
-            newTimeoutIds[task.id] = id;
-          }
-        }
-      });
-      
-      setTaskNotificationTimeoutsIds(newTimeoutIds);
+    console.log("Task notification effect triggered. Tasks count:", upcomingTasks.length);
+    
+    // Clear existing timeouts
+    Object.values(taskNotificationTimeoutsIds).forEach(id => {
+      clearTimeout(id);
+    });
+    
+    if (!settings.notifications || notificationPermission !== "granted" || upcomingTasks.length === 0) {
+      return;
     }
     
+    const newTimeoutIds: Record<string, number> = {};
+    
+    // Debug info
+    console.log("Current time:", new Date().toISOString());
+    
+    upcomingTasks.forEach(task => {
+      if (!task.time) return;
+      
+      const taskTime = new Date(task.time);
+      const now = new Date();
+      const delay = taskTime.getTime() - now.getTime();
+      
+      console.log(`Task: ${task.title}, Time: ${taskTime.toISOString()}, Delay: ${delay}ms`);
+      
+      // Only schedule if task is in the future but within 24 hours
+      if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
+        console.log(`Scheduling notification for task "${task.title}" in ${Math.round(delay/1000/60)} minutes`);
+        
+        // Force a new number to avoid TypeScript timer ID issues
+        const id = window.setTimeout(() => {
+          console.log(`Executing notification for task "${task.title}"`);
+          triggerTaskNotification(task);
+        }, delay) as unknown as number;
+        
+        newTimeoutIds[task.id] = id;
+      }
+    });
+    
+    setTaskNotificationTimeoutsIds(newTimeoutIds);
+    console.log("Scheduled notifications count:", Object.keys(newTimeoutIds).length);
+    
     return () => {
-      Object.values(taskNotificationTimeoutsIds).forEach(id => {
+      Object.values(newTimeoutIds).forEach(id => {
         clearTimeout(id);
       });
     };
@@ -166,22 +182,37 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
   };
 
   const triggerTaskNotification = (task: any) => {
+    console.log(`Triggering notification for task: ${task.title}`);
+    
     if (Notification.permission === "granted" && settings.notifications) {
-      new Notification("Task Reminder", {
+      // Create browser notification
+      const notification = new Notification("Task Reminder", {
         body: `It's time for: ${task.title}`,
         icon: "/favicon.ico",
-        tag: task.id
+        tag: task.id // Prevents stacking of same task notifications
       });
       
+      // Add onclick handler for the notification
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+      
+      // Play sound if enabled
       if (settings.soundEffects) {
         const audio = new Audio("/notification-sound.mp3");
-        audio.play().catch(console.error);
+        audio.play().catch(error => {
+          console.error("Error playing notification sound:", error);
+        });
       }
       
+      // Also show in-app toast
       toast({
         title: "Task Reminder",
         description: `It's time for: ${task.title}`,
       });
+    } else {
+      console.warn("Cannot trigger notification - permission not granted or notifications disabled");
     }
   };
 

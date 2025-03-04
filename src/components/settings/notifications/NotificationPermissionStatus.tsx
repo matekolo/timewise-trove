@@ -1,5 +1,6 @@
 
 import { Button } from "@/components/ui/button";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface NotificationPermissionStatusProps {
   permission: NotificationPermission | null;
@@ -12,6 +13,8 @@ const NotificationPermissionStatus = ({
   onRequestPermission,
   onTestNotification
 }: NotificationPermissionStatusProps) => {
+  const queryClient = useQueryClient();
+  
   return (
     <>
       <div className="pt-2 pb-1 border-t border-gray-200 dark:border-gray-800">
@@ -33,13 +36,23 @@ const NotificationPermissionStatus = ({
         </Button>
         
         {permission === "granted" && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={onTestNotification}
-          >
-            Send Test Notification
-          </Button>
+          <>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onTestNotification}
+            >
+              Send Test Notification
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] })}
+            >
+              Refresh Task Notifications
+            </Button>
+          </>
         )}
       </div>
     </>
