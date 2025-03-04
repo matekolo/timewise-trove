@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -91,6 +90,7 @@ const Reports = () => {
         throw error;
       }
       
+      console.log("Tasks fetched:", data);
       return data as Task[];
     },
   });
@@ -138,6 +138,7 @@ const Reports = () => {
   const filteredTasks = tasks.filter(task => {
     const { start, end } = getDateRange();
     const taskDate = parseISO(task.created_at);
+    console.log("Task:", task.title, "Date:", format(taskDate, "yyyy-MM-dd"), "In range:", isWithinInterval(taskDate, { start, end }));
     return isWithinInterval(taskDate, { start, end });
   });
   
@@ -155,32 +156,39 @@ const Reports = () => {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const result = [];
     
-    // Start from the beginning of the week (Monday)
     let currentDay = startOfWeek(start, { weekStartsOn: 1 });
     
-    // Create data for each day of the week
+    console.log("Date range:", format(start, "yyyy-MM-dd"), "to", format(end, "yyyy-MM-dd"));
+    console.log("Filtered tasks:", filteredTasks.length);
+    
     for (let i = 0; i < 7; i++) {
       const dayName = days[i];
       const dayDate = addDays(currentDay, i);
+      const dayStart = startOfDay(dayDate);
+      const dayEnd = endOfDay(dayDate);
       
-      // Filter tasks for this specific day
+      console.log("Checking day:", dayName, format(dayDate, "yyyy-MM-dd"));
+      
       const dayTasks = filteredTasks.filter(task => {
         const taskDate = parseISO(task.created_at);
-        return isWithinInterval(taskDate, {
-          start: startOfDay(dayDate),
-          end: endOfDay(dayDate)
-        });
+        const isInDay = isWithinInterval(taskDate, { start: dayStart, end: dayEnd });
+        console.log(`- Task: ${task.title}, Date: ${format(taskDate, "yyyy-MM-dd")}, In day: ${isInDay}`);
+        return isInDay;
       });
+      
+      console.log(`${dayName} has ${dayTasks.length} tasks`);
       
       if (dayTasks.length === 0) {
         result.push({ name: dayName, value: 0 });
       } else {
         const completedCount = dayTasks.filter(task => task.completed).length;
         const percentage = Math.round((completedCount / dayTasks.length) * 100);
+        console.log(`${dayName} completion: ${completedCount}/${dayTasks.length} = ${percentage}%`);
         result.push({ name: dayName, value: percentage });
       }
     }
     
+    console.log("Productivity data:", result);
     return result;
   };
   
@@ -219,7 +227,6 @@ const Reports = () => {
   const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"];
   
   const downloadReport = () => {
-    // Create a report object with all the data
     const reportData = {
       date: date ? format(date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
       timeRange,
@@ -235,10 +242,8 @@ const Reports = () => {
       }))
     };
     
-    // Convert to JSON string
     const jsonString = JSON.stringify(reportData, null, 2);
     
-    // Create a blob and download link
     const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -247,7 +252,6 @@ const Reports = () => {
     document.body.appendChild(link);
     link.click();
     
-    // Clean up
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
@@ -261,12 +265,10 @@ const Reports = () => {
     return entry.type === "bad" ? "#EF4444" : "#10B981";
   };
 
-  // Handle date change
   const handleDateChange = (newDate: Date | undefined) => {
     setDate(newDate);
   };
 
-  // Handle time range change
   const handleTimeRangeChange = (newRange: string) => {
     setTimeRange(newRange);
   };
