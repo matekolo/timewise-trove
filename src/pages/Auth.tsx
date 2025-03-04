@@ -22,6 +22,16 @@ const Auth = () => {
   const [confirmationEmail, setConfirmationEmail] = useState("");
   const navigate = useNavigate();
 
+  // Check if dark mode was set before user logged out
+  useEffect(() => {
+    const storedTheme = localStorage.getItem('theme-mode');
+    if (storedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
   // Check if user is already logged in
   useEffect(() => {
     const checkSession = async () => {
@@ -148,10 +158,10 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary/5 dark:bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-primary/10 dark:bg-primary/20 rounded-full blur-3xl" />
       </div>
       
       <motion.div
@@ -160,16 +170,16 @@ const Auth = () => {
         transition={{ duration: 0.5 }}
         className="max-w-md w-full"
       >
-        <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+        <Card className="border-0 shadow-lg bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-3xl font-bold">Timewise</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white">Timewise</CardTitle>
+            <CardDescription className="text-gray-600 dark:text-gray-300">
               {isLogin ? "Sign in to your account" : "Create a new account"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {showConfirmationMessage && (
-              <Alert className="mb-4 border-amber-500 bg-amber-50 text-amber-800">
+              <Alert className="mb-4 border-amber-500 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200">
                 <Info className="h-4 w-4" />
                 <AlertDescription>
                   <p className="mb-2">Email verification required. Please check your inbox to confirm your email address.</p>
@@ -178,7 +188,7 @@ const Auth = () => {
                     size="sm" 
                     onClick={resendConfirmationEmail}
                     disabled={loading}
-                    className="text-amber-800 border-amber-300 hover:bg-amber-100"
+                    className="text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/50"
                   >
                     Resend confirmation email
                   </Button>
@@ -189,17 +199,18 @@ const Auth = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
                 <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="name" className="text-gray-700 dark:text-gray-200">Name</Label>
                   <Input
                     id="name"
                     placeholder="John Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600"
                   />
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-gray-700 dark:text-gray-200">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -207,16 +218,18 @@ const Auth = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-gray-700 dark:text-gray-200">Password</Label>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600"
                 />
               </div>
               {error && (
@@ -240,7 +253,7 @@ const Auth = () => {
             </form>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <div className="text-sm text-center text-muted-foreground">
+            <div className="text-sm text-center text-muted-foreground dark:text-gray-400">
               {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
               <button
                 type="button"

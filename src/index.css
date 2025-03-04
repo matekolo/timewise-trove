@@ -129,6 +129,11 @@
     @apply bg-gray-800/50 border-gray-700;
   }
   
+  /* Auth page specific dark mode styles */
+  .dark .bg-white\/90 {
+    @apply bg-gray-800/90;
+  }
+  
   .dark .hover\:bg-gray-100:hover {
     @apply hover:bg-gray-800;
   }

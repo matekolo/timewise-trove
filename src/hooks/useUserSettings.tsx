@@ -96,6 +96,7 @@ export const useUserSettings = () => {
     if (settingsToApply.darkMode) {
       document.documentElement.classList.add('dark');
       // Explicitly store the preference in localStorage as well
+      // This separate storage helps the Auth page know about dark mode after logout
       localStorage.setItem('theme-mode', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
