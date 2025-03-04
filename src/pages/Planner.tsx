@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useNotifications } from "@/contexts/NotificationContext";
-import { DayPicker } from "react-day-picker";
 
 interface Task {
   id: string;
@@ -385,16 +384,25 @@ const Planner = () => {
               <div className="space-y-2">
                 <Label>Due Date & Time (optional)</Label>
                 <div className="flex flex-col gap-2">
-                  <div className="border rounded-md p-3">
-                    <DayPicker
-                      mode="single"
-                      selected={date}
-                      onSelect={(newDate) => {
-                        setDate(newDate);
-                      }}
-                      className="mx-auto"
-                    />
-                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="justify-start text-left font-normal w-full"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? format(date, "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={setDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                   
                   {date && (
                     <div className="flex items-center gap-2">
