@@ -1,7 +1,7 @@
 
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker, DayClickEventHandler } from "react-day-picker";
+import { DayPicker } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -78,27 +78,6 @@ function Calendar({
     );
   };
 
-  // Handle day click with mouse events
-  const handleDayClick: DayClickEventHandler = React.useCallback(
-    (day, modifiers, e) => {
-      if (e && preventPopoverClose) {
-        e.stopPropagation();
-      }
-      
-      // Call the original onDayClick if it exists
-      if (props.onDayClick) {
-        props.onDayClick(day, modifiers, e);
-      }
-      
-      // Handle the onSelect prop which is used by form components
-      const { onSelect } = props as any;
-      if (onSelect && day) {
-        onSelect(day);
-      }
-    },
-    [preventPopoverClose, props]
-  );
-
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -140,16 +119,8 @@ function Calendar({
       components={{
         IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
-        Day: ({ ...dayProps }) => (
-          <div 
-            onClick={(e) => preventPopoverClose && e.stopPropagation()}
-            onMouseDown={(e) => preventPopoverClose && e.stopPropagation()}
-          >
-            {renderDay(dayProps.date, dayProps.displayMonth ? {} : { outside: true })}
-          </div>
-        ),
+        // No custom Day component - we'll let react-day-picker handle the functionality
       }}
-      onDayClick={handleDayClick}
       {...props}
     />
   );

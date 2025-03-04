@@ -22,8 +22,8 @@ const PopoverContent = React.forwardRef<
         className
       )}
       onPointerDownOutside={(e) => {
-        // Don't close when clicking inside
-        if (e.target && (e.target as Element).closest('.rdp-day')) {
+        // Don't close when clicking inside a calendar day
+        if (e.target && (e.target as Element).closest('.rdp')) {
           e.preventDefault();
         }
       }}

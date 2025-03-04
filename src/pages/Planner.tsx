@@ -394,18 +394,12 @@ const Planner = () => {
                         {date ? format(date, "PPP") : "Pick a date"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent 
-                      className="w-auto p-0" 
-                      align="start"
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                    <PopoverContent className="w-auto p-0">
                       <Calendar
                         mode="single"
                         selected={date}
                         onSelect={setDate}
                         initialFocus
-                        className="rounded-md border"
-                        preventPopoverClose={true}
                       />
                     </PopoverContent>
                   </Popover>
