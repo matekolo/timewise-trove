@@ -395,12 +395,16 @@ const Planner = () => {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={setDate}
-                        initialFocus
-                      />
+                      <div className="rdp-root" onClick={e => e.stopPropagation()}>
+                        <Calendar
+                          mode="single"
+                          selected={date}
+                          onSelect={(newDate) => {
+                            setDate(newDate);
+                          }}
+                          initialFocus
+                        />
+                      </div>
                     </PopoverContent>
                   </Popover>
                   
