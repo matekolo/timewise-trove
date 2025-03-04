@@ -17,7 +17,17 @@ import Achievements from "./pages/Achievements";
 import Settings from "./pages/Settings";
 import { NotificationProvider } from "./contexts/NotificationContext";
 
-const queryClient = new QueryClient();
+// Create and configure the Query Client with better defaults for caching
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

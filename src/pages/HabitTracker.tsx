@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, X, MoreHorizontal, Trash2, Edit, ThumbsUp, ThumbsDown, Check } from "lucide-react";
+import { Plus, X, MoreHorizontal, Trash2, Edit, ThumbsUp, ThumbsDown, Check, Calendar } from "lucide-react";
 import Tile from "@/components/ui/Tile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,8 @@ import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
+import { format, subDays, startOfDay, parseISO, isAfter } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Habit {
   id: string;
@@ -23,6 +26,7 @@ interface Habit {
   user_id: string;
   created_at?: string;
   updated_at?: string;
+  history?: Record<string, boolean>;
 }
 
 const HabitTracker = () => {
@@ -32,6 +36,8 @@ const HabitTracker = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [activeFilter, setActiveFilter] = useState<"all" | "good" | "bad">("all");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<"week" | "calendar">("week");
   const queryClient = useQueryClient();
   
   const fetchHabits = async (): Promise<Habit[]> => {
@@ -47,7 +53,9 @@ const HabitTracker = () => {
     
     return (data || []).map(habit => ({
       ...habit,
-      type: habit.type || "good"
+      type: habit.type || "good",
+      history: habit.history || {},
+      days: habit.days || [false, false, false, false, false, false, false]
     })) as Habit[];
   };
   
@@ -174,30 +182,95 @@ const HabitTracker = () => {
         goal: newHabitGoal,
         streak: 0,
         days: [false, false, false, false, false, false, false],
+        history: {},
         type: newHabitType,
         user_id: user.id
       });
     }
   };
   
+  const getCurrentWeekDates = () => {
+    const today = startOfDay(new Date());
+    const dates = [];
+    
+    for (let i = 6; i >= 0; i--) {
+      dates.push(subDays(today, i));
+    }
+    
+    return dates;
+  };
+  
+  const weekDates = getCurrentWeekDates();
+  
   const toggleDay = (habit: Habit, dayIndex: number) => {
+    const formattedDate = format(weekDates[dayIndex], 'yyyy-MM-dd');
+    const newHistory = { ...(habit.history || {}) };
+    
+    // Toggle the value for this date
+    newHistory[formattedDate] = !newHistory[formattedDate];
+    
+    // Calculate streak
+    let streak = calculateStreak(newHistory);
+    
+    // Update the days array for compatibility with the existing UI
     const newDays = [...habit.days];
     newDays[dayIndex] = !newDays[dayIndex];
-    
-    let streak = 0;
-    for (let i = 0; i < newDays.length; i++) {
-      if (newDays[i]) {
-        streak++;
-      } else {
-        break;
-      }
-    }
     
     updateHabitMutation.mutate({
       id: habit.id,
       days: newDays,
+      history: newHistory,
       streak,
     });
+  };
+  
+  const toggleDateInHistory = (habit: Habit, date: Date) => {
+    const formattedDate = format(date, 'yyyy-MM-dd');
+    const newHistory = { ...(habit.history || {}) };
+    
+    // Toggle the value for this date
+    newHistory[formattedDate] = !newHistory[formattedDate];
+    
+    // Calculate streak
+    let streak = calculateStreak(newHistory);
+    
+    updateHabitMutation.mutate({
+      id: habit.id,
+      history: newHistory,
+      streak,
+    });
+  };
+  
+  const calculateStreak = (history: Record<string, boolean>) => {
+    if (!history) return 0;
+    
+    // Convert the history object to an array of date entries sorted in descending order
+    const sortedDates = Object.entries(history)
+      .filter(([_, completed]) => completed) // Only consider completed days
+      .map(([date]) => date)
+      .sort((a, b) => (parseISO(b) > parseISO(a) ? 1 : -1));
+    
+    if (sortedDates.length === 0) return 0;
+    
+    let streak = 1; // Start with one for the most recent date
+    let currentDate = parseISO(sortedDates[0]);
+    
+    // Go through each date to count consecutive days
+    for (let i = 1; i < sortedDates.length; i++) {
+      const prevDate = subDays(currentDate, 1);
+      const checkDate = parseISO(sortedDates[i]);
+      
+      // If this date is exactly one day before the current date, increment streak
+      if (format(prevDate, 'yyyy-MM-dd') === format(checkDate, 'yyyy-MM-dd')) {
+        streak++;
+        currentDate = checkDate;
+      } else {
+        // Break the streak if we find a gap
+        break;
+      }
+    }
+    
+    return streak;
   };
   
   const deleteHabit = (habitId: string) => {
@@ -215,6 +288,25 @@ const HabitTracker = () => {
   const getDayName = (index: number) => {
     return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index];
   };
+  
+  const isDateCompleted = (habit: Habit, date: Date) => {
+    const formattedDate = format(date, 'yyyy-MM-dd');
+    return habit.history && habit.history[formattedDate];
+  };
+  
+  const getCalendarDates = () => {
+    const dates = [];
+    const today = startOfDay(new Date());
+    
+    // Add the past 30 days and the next 7 days
+    for (let i = 30; i >= -7; i--) {
+      dates.push(subDays(today, i));
+    }
+    
+    return dates;
+  };
+  
+  const calendarDates = getCalendarDates();
   
   const filteredHabits = habits.filter((habit: any) => {
     const habitType = habit.type || "good";
@@ -254,102 +346,113 @@ const HabitTracker = () => {
           <p className="text-muted-foreground">Track and build better habits</p>
         </motion.div>
         
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) {
-            setEditingHabit(null);
-            setNewHabitName("");
-            setNewHabitGoal("");
-            setNewHabitType("good");
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              <span>Add Habit</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingHabit ? "Edit habit" : "Add a new habit"}</DialogTitle>
-              <DialogDescription>
-                {editingHabit ? "Update your habit details" : "Create a new habit to track your progress"}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="habit-name">Habit name</Label>
-                <Input
-                  id="habit-name"
-                  placeholder="E.g., Daily exercise"
-                  value={newHabitName}
-                  onChange={(e) => setNewHabitName(e.target.value)}
-                />
+        <div className="flex gap-2 items-center">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={() => setViewMode(viewMode === "week" ? "calendar" : "week")}
+            aria-label="Switch view"
+          >
+            <Calendar className="h-4 w-4" />
+          </Button>
+          
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setEditingHabit(null);
+              setNewHabitName("");
+              setNewHabitGoal("");
+              setNewHabitType("good");
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                <span>Add Habit</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingHabit ? "Edit habit" : "Add a new habit"}</DialogTitle>
+                <DialogDescription>
+                  {editingHabit ? "Update your habit details" : "Create a new habit to track your progress"}
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="habit-name">Habit name</Label>
+                  <Input
+                    id="habit-name"
+                    placeholder="E.g., Daily exercise"
+                    value={newHabitName}
+                    onChange={(e) => setNewHabitName(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="habit-goal">Goal (optional)</Label>
+                  <Input
+                    id="habit-goal"
+                    placeholder="E.g., 30 minutes of exercise daily"
+                    value={newHabitGoal}
+                    onChange={(e) => setNewHabitGoal(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Habit Type</Label>
+                  <RadioGroup 
+                    value={newHabitType} 
+                    onValueChange={(value: "good" | "bad") => setNewHabitType(value)}
+                    className="flex space-x-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="good" id="habit-type-good" />
+                      <Label htmlFor="habit-type-good" className="flex items-center gap-1">
+                        <ThumbsUp className="h-4 w-4 text-green-500" />
+                        <span>Good Habit</span>
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="bad" id="habit-type-bad" />
+                      <Label htmlFor="habit-type-bad" className="flex items-center gap-1">
+                        <ThumbsDown className="h-4 w-4 text-red-500" />
+                        <span>Bad Habit</span>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {newHabitType === "good" 
+                      ? "A habit you want to build and maintain" 
+                      : "A habit you want to break or avoid"}
+                  </p>
+                </div>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="habit-goal">Goal (optional)</Label>
-                <Input
-                  id="habit-goal"
-                  placeholder="E.g., 30 minutes of exercise daily"
-                  value={newHabitGoal}
-                  onChange={(e) => setNewHabitGoal(e.target.value)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Habit Type</Label>
-                <RadioGroup 
-                  value={newHabitType} 
-                  onValueChange={(value: "good" | "bad") => setNewHabitType(value)}
-                  className="flex space-x-4"
+              <DialogFooter>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsDialogOpen(false);
+                    setEditingHabit(null);
+                    setNewHabitName("");
+                    setNewHabitGoal("");
+                    setNewHabitType("good");
+                  }}
                 >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="good" id="habit-type-good" />
-                    <Label htmlFor="habit-type-good" className="flex items-center gap-1">
-                      <ThumbsUp className="h-4 w-4 text-green-500" />
-                      <span>Good Habit</span>
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="bad" id="habit-type-bad" />
-                    <Label htmlFor="habit-type-bad" className="flex items-center gap-1">
-                      <ThumbsDown className="h-4 w-4 text-red-500" />
-                      <span>Bad Habit</span>
-                    </Label>
-                  </div>
-                </RadioGroup>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {newHabitType === "good" 
-                    ? "A habit you want to build and maintain" 
-                    : "A habit you want to break or avoid"}
-                </p>
-              </div>
-            </div>
-            
-            <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setIsDialogOpen(false);
-                  setEditingHabit(null);
-                  setNewHabitName("");
-                  setNewHabitGoal("");
-                  setNewHabitType("good");
-                }}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={addHabit}
-                disabled={addHabitMutation.isPending || updateHabitMutation.isPending}
-              >
-                {editingHabit ? "Update Habit" : "Add Habit"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={addHabit}
+                  disabled={addHabitMutation.isPending || updateHabitMutation.isPending}
+                >
+                  {editingHabit ? "Update Habit" : "Add Habit"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
       
       <div className="flex gap-2">
@@ -381,7 +484,7 @@ const HabitTracker = () => {
       </div>
       
       <div className="grid grid-cols-1 gap-6">
-        {filteredHabits.map((habit: any, index) => (
+        {filteredHabits.map((habit: Habit, index) => (
           <Tile
             key={habit.id}
             delay={index}
@@ -432,35 +535,80 @@ const HabitTracker = () => {
                 </div>
               </div>
               
-              <div className="grid grid-cols-7 gap-2 mt-4">
-                {habit.days.map((completed: boolean, dayIndex: number) => (
-                  <div key={dayIndex} className="flex flex-col items-center">
-                    <span className="text-xs text-muted-foreground mb-2">
-                      {getDayName(dayIndex)}
-                    </span>
-                    <button
-                      className={`w-10 h-10 rounded-full border transition-all duration-200 flex items-center justify-center ${
-                        completed
-                          ? habit.type === "bad"
-                            ? "bg-red-500 border-red-500 text-white"
-                            : "bg-primary border-primary text-white"
-                          : "border-gray-200 text-gray-400 hover:border-primary/50"
-                      }`}
-                      onClick={() => toggleDay(habit, dayIndex)}
-                    >
-                      {completed ? (
-                        habit.type === "bad" ? (
-                          <X className="h-5 w-5" />
+              {viewMode === "week" && (
+                <div className="grid grid-cols-7 gap-2 mt-4">
+                  {weekDates.map((date, dayIndex) => (
+                    <div key={dayIndex} className="flex flex-col items-center">
+                      <span className="text-xs text-muted-foreground mb-2">
+                        {format(date, 'EEE')}
+                      </span>
+                      <span className="text-xs text-muted-foreground mb-1">
+                        {format(date, 'MM/dd')}
+                      </span>
+                      <button
+                        className={`w-10 h-10 rounded-full border transition-all duration-200 flex items-center justify-center ${
+                          isDateCompleted(habit, date)
+                            ? habit.type === "bad"
+                              ? "bg-red-500 border-red-500 text-white"
+                              : "bg-primary border-primary text-white"
+                            : "border-gray-200 text-gray-400 hover:border-primary/50"
+                        }`}
+                        onClick={() => toggleDateInHistory(habit, date)}
+                      >
+                        {isDateCompleted(habit, date) ? (
+                          habit.type === "bad" ? (
+                            <X className="h-5 w-5" />
+                          ) : (
+                            <Check className="h-5 w-5" />
+                          )
                         ) : (
-                          <Check className="h-5 w-5" />
-                        )
-                      ) : (
-                        <Plus className="h-5 w-5" />
-                      )}
-                    </button>
+                          <Plus className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {viewMode === "calendar" && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium mb-3">30-Day History</h4>
+                  <div className="grid grid-cols-7 sm:grid-cols-9 md:grid-cols-12 lg:grid-cols-14 gap-2">
+                    {calendarDates.map((date, index) => (
+                      <Popover key={index}>
+                        <PopoverTrigger asChild>
+                          <button
+                            className={`w-8 h-8 rounded border transition-all duration-200 flex items-center justify-center text-xs ${
+                              isDateCompleted(habit, date)
+                                ? habit.type === "bad"
+                                  ? "bg-red-500 border-red-500 text-white"
+                                  : "bg-primary border-primary text-white"
+                                : format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                                  ? "border-primary/50 bg-primary/5" 
+                                  : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                            }`}
+                            onClick={() => toggleDateInHistory(habit, date)}
+                          >
+                            {format(date, 'dd')}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-2" align="center">
+                          <div className="text-center">
+                            <p className="font-medium">{format(date, 'EEEE, MMMM d, yyyy')}</p>
+                            <p className="text-sm mt-1">
+                              {isDateCompleted(habit, date) 
+                                ? habit.type === "good" 
+                                  ? "Completed" 
+                                  : "Avoided" 
+                                : "Not tracked"}
+                            </p>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           </Tile>
         ))}
@@ -481,3 +629,4 @@ const HabitTracker = () => {
 };
 
 export default HabitTracker;
+
