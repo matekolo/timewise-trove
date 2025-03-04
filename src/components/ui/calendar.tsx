@@ -1,7 +1,7 @@
 
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker } from "react-day-picker";
+import { DayPicker, DayModifiers } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -26,10 +26,16 @@ function Calendar({
     eventDates.forEach((date, index) => {
       const dateString = date.toISOString().split('T')[0];
       const existingTypes = map.get(dateString) || [];
-      // Use a safe type check before accessing properties
-      const eventModifiers = props.modifiers as Record<string, any> || {};
-      const eventTypes = eventModifiers.eventTypes || [];
-      const eventType = eventTypes[index] || 'default';
+      
+      // Get event type safely (default to 'default' if not found)
+      let eventType = 'default';
+      if (props.modifiers && 'eventTypes' in props.modifiers) {
+        const eventTypes = props.modifiers.eventTypes as any[];
+        if (Array.isArray(eventTypes) && eventTypes[index]) {
+          eventType = eventTypes[index];
+        }
+      }
+      
       map.set(dateString, [...existingTypes, eventType]);
     });
     
