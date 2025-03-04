@@ -19,10 +19,10 @@ export const showToast = (props: {
     console.log("Actually showing toast now:", props.title);
     hookToast({
       ...props,
-      // Longer duration for better visibility
-      duration: 10000,
+      // More reasonable duration for better visibility but not too long
+      duration: 5000,
     });
-  }, 10); // Small delay to ensure it escapes current render cycle
+  }, 100); // Slightly longer delay to ensure it escapes current render cycle
 };
 
 // Convenience methods for common toast types

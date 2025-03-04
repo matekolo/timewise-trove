@@ -12,7 +12,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
   const [timeoutId, setTimeoutId] = useState<number | null>(null);
   const [taskNotificationTimeoutsIds, setTaskNotificationTimeoutsIds] = useState<Record<string, number>>({});
 
-  const { data: upcomingTasks = [] } = useQuery({
+  const { data: upcomingTasks = [], refetch: refetchTasks } = useQuery({
     queryKey: ["upcoming-tasks"],
     queryFn: async () => {
       console.log("Fetching upcoming tasks for notifications");
@@ -172,6 +172,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
         return;
       }
       
+      // Ensure proper parsing of the task time regardless of format
       const taskTime = new Date(task.time).getTime();
       
       const delay = taskTime - now;
@@ -179,7 +180,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       
       console.log(`Scheduling task: "${task.title}", Time: ${new Date(taskTime).toLocaleString()}, Delay: ${delay}ms (${minutesToGo} minutes)`);
       
-      if (delay > 0) {
+      if (delay > 0 && delay < 24 * 60 * 60 * 1000) { // Only schedule if less than 24 hours away
         console.log(`✅ Scheduling notification for task "${task.title}" in ${minutesToGo} minutes`);
         
         const id = window.setTimeout(() => {
@@ -188,10 +189,15 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
         }, delay) as unknown as number;
         
         newTimeoutIds[task.id] = id;
-      } else if (delay > -60000) { // If the task is less than 1 minute overdue, notify anyway
-        console.log(`⚠️ Task "${task.title}" time is very recent (${Math.abs(minutesToGo)} minutes ago), triggering notification`);
-        triggerTaskNotification(task);
-      } else {
+      } else if (delay >= -5 * 60 * 1000 && delay <= 1 * 60 * 1000) { 
+        // If the task is between 5 minutes overdue and 1 minute in the future, notify immediately
+        console.log(`⚠️ Task "${task.title}" time is very recent (${Math.abs(minutesToGo)} minutes from now), triggering notification immediately`);
+        
+        // Use a short timeout to avoid triggering during rendering
+        setTimeout(() => {
+          triggerTaskNotification(task);
+        }, 500);
+      } else if (delay < 0) {
         console.log(`⚠️ Task "${task.title}" time has already passed (${Math.abs(minutesToGo)} minutes ago), skipping notification`);
       }
     });
@@ -347,7 +353,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     if (Notification.permission === "granted" && settings.notifications) {
       try {
         console.log("Sending test notification...");
-        window.setTimeout(() => {
+        setTimeout(() => {
           const notification = new Notification("Test Notification", {
             body: "This is a test notification from Timewise",
             icon: "/favicon.ico",
@@ -372,7 +378,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
           );
           
           console.log("Test notification successfully sent");
-        }, 0);
+        }, 100); // Small delay to ensure it's outside any React render cycle
       } catch (error) {
         console.error("Error sending test notification:", error);
         showErrorToast(
@@ -390,39 +396,65 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
   
   const manuallyCheckOverdueTasks = () => {
     console.log("Manually checking for overdue tasks...");
-    if (!settings.notifications || notificationPermission !== "granted" || !upcomingTasks.length) {
-      console.log("Cannot check overdue tasks - notifications disabled or no tasks");
-      showSuccessToast(
-        "No tasks available", 
-        "No upcoming tasks found or notifications are disabled."
-      );
-      return;
-    }
     
-    const now = new Date();
-    let notifiedCount = 0;
-    
-    upcomingTasks.forEach(task => {
-      if (!task.time) return;
+    // First, force a refetch to ensure we have the latest data
+    refetchTasks().then(() => {
+      if (!settings.notifications || notificationPermission !== "granted") {
+        console.log("Cannot check overdue tasks - notifications disabled or permission not granted");
+        showErrorToast(
+          "Notifications Disabled", 
+          "Please enable notifications to check for due tasks."
+        );
+        return;
+      }
       
-      const taskTime = new Date(task.time);
-      const timeDiff = now.getTime() - taskTime.getTime();
+      const now = new Date();
+      let notifiedCount = 0;
       
-      if (timeDiff >= -5 * 60 * 1000 && timeDiff <= 5 * 60 * 1000) {
-        console.log(`Found task due now or very soon: "${task.title}" (${Math.round(timeDiff/1000/60)} minutes ago)`);
-        triggerTaskNotification(task);
-        notifiedCount++;
+      // If no tasks at all, show a message
+      if (!upcomingTasks || upcomingTasks.length === 0) {
+        console.log("No upcoming tasks found to check");
+        showSuccessToast(
+          "No tasks available", 
+          "No upcoming tasks found in your schedule."
+        );
+        return;
+      }
+      
+      console.log(`Checking ${upcomingTasks.length} tasks for due items...`);
+      
+      // Check each task
+      upcomingTasks.forEach(task => {
+        if (!task.time) return;
+        
+        const taskTime = new Date(task.time);
+        const timeDiff = now.getTime() - taskTime.getTime();
+        const minutesDiff = Math.round(timeDiff / (60 * 1000));
+        
+        console.log(`Task "${task.title}" scheduled for ${taskTime.toLocaleString()}, difference: ${minutesDiff} minutes`);
+        
+        // Consider tasks due within +/- 15 minutes from now
+        if (timeDiff >= -15 * 60 * 1000 && timeDiff <= 15 * 60 * 1000) {
+          console.log(`Found task due now or very soon: "${task.title}" (${minutesDiff} minutes from now)`);
+          
+          // Use setTimeout to avoid triggering during render
+          setTimeout(() => {
+            triggerTaskNotification(task);
+          }, 500);
+          
+          notifiedCount++;
+        }
+      });
+      
+      console.log(`Manual check complete. Found ${notifiedCount} tasks due soon.`);
+      
+      if (notifiedCount === 0) {
+        showSuccessToast(
+          "No tasks due soon", 
+          "There are no tasks due within the next 15 minutes."
+        );
       }
     });
-    
-    console.log(`Manual check complete. Notified about ${notifiedCount} tasks.`);
-    
-    if (notifiedCount === 0) {
-      showSuccessToast(
-        "No tasks due now", 
-        "There are no tasks due at this moment."
-      );
-    }
   };
 
   return {
