@@ -1,4 +1,3 @@
-
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -226,6 +225,50 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
     }
   };
 
+  const checkForDueTasks = async () => {
+    try {
+      await refetchTasks();
+      
+      const now = new Date();
+      const startTime = new Date(now.getTime() - 15 * 60 * 1000);
+      const endTime = new Date(now.getTime() + 15 * 60 * 1000);
+      
+      console.log("Checking for tasks due between", startTime.toLocaleTimeString(), "and", endTime.toLocaleTimeString());
+      
+      const dueTasks = upcomingTasks.filter(task => {
+        if (!task.time) return false;
+        
+        const taskTime = new Date(task.time);
+        return taskTime >= startTime && taskTime <= endTime;
+      });
+      
+      if (dueTasks.length > 0) {
+        console.log("Found due tasks:", dueTasks);
+        dueTasks.forEach(task => {
+          setTimeout(() => triggerTaskNotification(task), 100);
+        });
+        
+        toast({
+          title: "Due Tasks Found",
+          description: `Found ${dueTasks.length} task(s) due around this time.`,
+        });
+      } else {
+        console.log("No due tasks found in the current time window");
+        toast({
+          title: "No Due Tasks",
+          description: "No tasks are due in the current time window (±15 minutes).",
+        });
+      }
+    } catch (err) {
+      console.error("Error checking for due tasks:", err);
+      toast({
+        title: "Error",
+        description: "There was an error checking for due tasks.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleNotificationChange = async (checked: boolean) => {
     if (checked) {
       try {
@@ -328,6 +371,31 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
     }
   };
 
+  const triggerTestNotification = () => {
+    if (Notification.permission === "granted" && settings.notifications) {
+      const notification = new Notification("Test Notification", {
+        body: "This is a test notification from Timewise",
+        icon: "/favicon.ico"
+      });
+      
+      if (settings.soundEffects) {
+        const audio = new Audio("/notification-sound.mp3");
+        audio.play().catch(console.error);
+      }
+      
+      toast({
+        title: "Test Notification Sent",
+        description: "If you didn't see a notification, check your browser settings.",
+      });
+    } else {
+      toast({
+        title: "Notification Error",
+        description: "Notifications are not enabled or permission was denied",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Tile title={t("notificationSettings")}>
       <div className="space-y-6">
@@ -390,7 +458,40 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
           >
             Request Permission
           </Button>
+          
+          {notificationPermission === "granted" && (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={triggerTestNotification}
+              >
+                Send Test Notification
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={checkForDueTasks}
+              >
+                Check For Due Tasks
+              </Button>
+            </>
+          )}
         </div>
+        
+        {upcomingTasks.length > 0 && (
+          <div className="pt-4">
+            <p className="text-sm font-medium mb-2">Upcoming Task Notifications:</p>
+            <ul className="text-xs text-muted-foreground space-y-1">
+              {upcomingTasks.map(task => (
+                <li key={task.id}>
+                  {task.title} - {new Date(task.time).toLocaleString()}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </Tile>
   );
