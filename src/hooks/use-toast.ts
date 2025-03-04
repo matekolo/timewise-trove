@@ -57,7 +57,25 @@ interface State {
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
 // Global cache to track active notification content across the entire app
-const globalNotificationCache = new Set<string>();
+// Make it more persistent by using a variable outside React's lifecycle
+// Store a timestamp with each notification to expire them
+const globalNotificationCache = new Map<string, { timestamp: number }>();
+
+// Set an expiration time (30 minutes) for active notifications
+const NOTIFICATION_EXPIRY_TIME = 30 * 60 * 1000; // 30 minutes
+
+// Clean expired notifications from the global cache
+const cleanExpiredNotifications = () => {
+  const now = Date.now();
+  globalNotificationCache.forEach((entry, key) => {
+    if (now - entry.timestamp > NOTIFICATION_EXPIRY_TIME) {
+      globalNotificationCache.delete(key);
+    }
+  });
+};
+
+// Clean expired notifications every 5 minutes
+setInterval(cleanExpiredNotifications, 5 * 60 * 1000);
 
 const addToRemoveQueue = (toastId: string) => {
   if (toastTimeouts.has(toastId)) {
@@ -124,11 +142,12 @@ export const reducer = (state: State, action: Action): State => {
         }
       }
       
-      // When removing toast, also remove from global notification cache
+      // When removing toast, also remove from global notification cache if it exists
       const toastToRemove = state.toasts.find(t => t.id === action.toastId);
       if (toastToRemove) {
         const notificationKey = `${toastToRemove.title}:${toastToRemove.description}`;
-        globalNotificationCache.delete(notificationKey);
+        // We don't remove from the notification cache here - let the expiration handle it
+        // This prevents new notifications with the same content from being blocked too early
       }
       
       return {
@@ -160,8 +179,8 @@ function toast({ ...props }: Toast) {
     return { id: "duplicate", dismiss: () => {}, update: () => {} };
   }
   
-  // Add to global notification cache
-  globalNotificationCache.add(notificationKey);
+  // Add to global notification cache with current timestamp
+  globalNotificationCache.set(notificationKey, { timestamp: Date.now() });
   
   const id = genId()
 
@@ -182,8 +201,7 @@ function toast({ ...props }: Toast) {
       onOpenChange: (open) => {
         if (!open) {
           dismiss();
-          // When dismissed, also remove from global notification cache
-          globalNotificationCache.delete(notificationKey);
+          // We don't remove from the notification cache here - let the expiration handle it
         }
       },
     },
@@ -218,7 +236,8 @@ function useToast() {
 
 // Helper function to check if a notification exists
 function notificationExists(title: string, description: string): boolean {
-  return globalNotificationCache.has(`${title}:${description}`);
+  const notificationKey = `${title}:${description}`;
+  return globalNotificationCache.has(notificationKey);
 }
 
 // Clear all active notifications (useful for testing)

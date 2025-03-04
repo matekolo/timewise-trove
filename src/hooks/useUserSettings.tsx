@@ -116,51 +116,8 @@ export const useUserSettings = () => {
     
     applyThemeColor(settingsToApply.themeColor);
     
-    // Schedule daily reminder if enabled
-    if (settingsToApply.notifications && settingsToApply.dailyReminderTime) {
-      scheduleReminderNotification(settingsToApply.dailyReminderTime);
-    }
-    
     // Log for debugging
     console.log("Settings applied:", settingsToApply);
-  };
-
-  // Schedule daily reminder notification
-  const scheduleReminderNotification = (reminderTime: string) => {
-    // Clear any existing scheduled notifications
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      // Get current time and reminder time
-      const [hours, minutes] = reminderTime.split(':').map(Number);
-      const now = new Date();
-      const reminderDate = new Date();
-      reminderDate.setHours(hours, minutes, 0, 0);
-      
-      // If reminder time is earlier than current time, schedule for next day
-      if (reminderDate <= now) {
-        reminderDate.setDate(reminderDate.getDate() + 1);
-      }
-      
-      // Calculate delay until reminder time
-      const delay = reminderDate.getTime() - now.getTime();
-      
-      // Schedule notification
-      setTimeout(() => {
-        if (Notification.permission === "granted") {
-          const notification = new Notification("Timewise Daily Reminder", {
-            body: "It's time to check your tasks and habits for today!",
-            icon: "/favicon.ico"
-          });
-          
-          // Play sound if enabled
-          if (settings.soundEffects) {
-            const audio = new Audio("/notification-sound.mp3");
-            audio.play().catch(console.error);
-          }
-        }
-        // Reschedule for next day
-        scheduleReminderNotification(reminderTime);
-      }, delay);
-    }
   };
 
   // Update a single setting

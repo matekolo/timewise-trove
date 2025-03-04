@@ -1,7 +1,6 @@
-
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Filter, Check, Trash2, ArrowUp, ArrowDown, CalendarIcon, Tag, Clock } from "lucide-react";
+import { Plus, Filter, Check, Trash2, Tag, Clock, CalendarIcon } from "lucide-react";
 import Tile from "@/components/ui/Tile";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -11,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { toast, notificationExists } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
@@ -23,6 +22,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 interface Task {
   id: string;
@@ -62,9 +62,7 @@ const Planner = () => {
     category: "general",
   });
   const { settings } = useUserSettings();
-  const taskNotificationTimeoutsIdsRef = useRef<Record<string, number>>({});
-  const notificationsInitializedRef = useRef(false);
-  const mountedRef = useRef(false);
+  const { scheduleTaskNotifications } = useNotifications();
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks"],
@@ -75,13 +73,11 @@ const Planner = () => {
         .order("created_at", { ascending: true });
       
       if (error) {
-        if (!notificationExists("Error fetching tasks", error.message)) {
-          toast({
-            title: "Error fetching tasks",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
+        toast({
+          title: "Error fetching tasks",
+          description: error.message,
+          variant: "destructive",
+        });
         throw error;
       }
       
@@ -90,85 +86,10 @@ const Planner = () => {
   });
 
   useEffect(() => {
-    mountedRef.current = true;
-    
-    // Only initialize once when tasks are loaded
-    if (!notificationsInitializedRef.current && settings.notifications && Notification.permission === "granted" && tasks.length > 0) {
-      console.log("Setting up task notifications for", tasks.length, "tasks");
-      
-      const newTimeoutIds: Record<string, number> = {};
-      
-      tasks.forEach(task => {
-        if (task.time && !task.completed) {
-          try {
-            const taskTime = new Date(task.time);
-            const now = new Date();
-            const timeDiff = taskTime.getTime() - now.getTime();
-            
-            // If the task is due within the next 24 hours
-            if (timeDiff > 0 && timeDiff < 24 * 60 * 60 * 1000) {
-              console.log(`Scheduling notification for task "${task.title}" in ${Math.round(timeDiff/1000/60)} minutes`);
-              
-              const id = window.setTimeout(() => {
-                triggerTaskNotification(task);
-              }, timeDiff);
-              
-              newTimeoutIds[task.id] = id;
-            }
-            // Check for tasks that are very slightly overdue (within the last 15 minutes)
-            else if (timeDiff > -15 * 60 * 1000 && timeDiff <= 0) {
-              console.log(`Task "${task.title}" is slightly overdue, triggering notification now`);
-              triggerTaskNotification(task);
-            }
-          } catch (err) {
-            console.error(`Error scheduling notification for task "${task.title}":`, err);
-          }
-        }
-      });
-      
-      taskNotificationTimeoutsIdsRef.current = newTimeoutIds;
-      notificationsInitializedRef.current = true;
+    if (settings.notifications && Notification.permission === "granted") {
+      scheduleTaskNotifications();
     }
-    
-    return () => {
-      mountedRef.current = false;
-      // Clean up all timeouts when component unmounts
-      Object.values(taskNotificationTimeoutsIdsRef.current).forEach(id => {
-        clearTimeout(id);
-      });
-    };
-  }, [tasks, settings.notifications]);
-
-  const triggerTaskNotification = (task: Task) => {
-    console.log("Triggering task notification for:", task.title);
-    if (Notification.permission === "granted" && settings.notifications) {
-      try {
-        // Check if this notification is already being displayed
-        if (notificationExists("Task Reminder", `It's time for: ${task.title}`)) {
-          console.log("Notification already active for task:", task.title);
-          return;
-        }
-        
-        const notification = new Notification("Task Reminder", {
-          body: `It's time for: ${task.title}`,
-          icon: "/favicon.ico"
-        });
-        
-        if (settings.soundEffects) {
-          const audio = new Audio("/notification-sound.mp3");
-          audio.play().catch(err => console.error("Error playing sound:", err));
-        }
-        
-        toast({
-          title: "Task Reminder",
-          description: `It's time for: ${task.title}`,
-          duration: 6000,
-        });
-      } catch (err) {
-        console.error("Error triggering task notification:", err);
-      }
-    }
-  };
+  }, [tasks, settings.notifications, scheduleTaskNotifications]);
 
   const addTaskMutation = useMutation({
     mutationFn: async (task: Omit<Task, "id">) => {
@@ -193,6 +114,8 @@ const Planner = () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["achievement-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
+      
       toast({
         title: "Task added",
         description: `${newTask.title} has been added to your planner.`,
@@ -233,6 +156,7 @@ const Planner = () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["achievement-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
     },
   });
 
@@ -256,6 +180,8 @@ const Planner = () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["achievement-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
+      
       toast({
         title: "Task deleted",
         description: "The task has been deleted from your planner.",
@@ -309,13 +235,6 @@ const Planner = () => {
   };
 
   const handleDeleteTask = (taskId: string) => {
-    if (taskNotificationTimeoutsIdsRef.current[taskId]) {
-      clearTimeout(taskNotificationTimeoutsIdsRef.current[taskId]);
-      const newTimeoutIds = { ...taskNotificationTimeoutsIdsRef.current };
-      delete newTimeoutIds[taskId];
-      taskNotificationTimeoutsIdsRef.current = newTimeoutIds;
-    }
-    
     deleteTaskMutation.mutate(taskId);
   };
 

@@ -15,28 +15,31 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Achievements from "./pages/Achievements";
 import Settings from "./pages/Settings";
+import { NotificationProvider } from "./contexts/NotificationContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Routes>
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="habits" element={<HabitTracker />} />
-          <Route path="planner" element={<Planner />} />
-          <Route path="notes" element={<Notes />} />
-          <Route path="calendar" element={<CalendarView />} />
-          <Route path="reports" element={<Reports />} />
-          <Route path="achievements" element={<Achievements />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-      <Toaster />
-      <Sonner />
+      <NotificationProvider>
+        <Routes>
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="habits" element={<HabitTracker />} />
+            <Route path="planner" element={<Planner />} />
+            <Route path="notes" element={<Notes />} />
+            <Route path="calendar" element={<CalendarView />} />
+            <Route path="reports" element={<Reports />} />
+            <Route path="achievements" element={<Achievements />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <Toaster />
+        <Sonner />
+      </NotificationProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
