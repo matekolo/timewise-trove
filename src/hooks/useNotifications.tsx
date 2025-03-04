@@ -1,9 +1,8 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { UserSettings } from "@/hooks/useUserSettings";
-import { showNotificationToast, showErrorToast } from "@/utils/toastUtils";
+import { showNotificationToast, showErrorToast, showSuccessToast } from "@/utils/toastUtils";
 
 export const useNotifications = (settings: UserSettings, updateSetting: (key: keyof UserSettings, value: any) => void) => {
   const queryClient = useQueryClient();
@@ -12,7 +11,6 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
   const [timeoutId, setTimeoutId] = useState<number | null>(null);
   const [taskNotificationTimeoutsIds, setTaskNotificationTimeoutsIds] = useState<Record<string, number>>({});
 
-  // Fetch upcoming tasks for notifications
   const { data: upcomingTasks = [] } = useQuery({
     queryKey: ["upcoming-tasks"],
     queryFn: async () => {
@@ -22,10 +20,8 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
         return [];
       }
       
-      // Get current time
       const now = new Date();
       
-      // Get tasks for the next 24 hours
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       
@@ -44,7 +40,6 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       
       console.log(`Fetched ${data?.length || 0} tasks for notifications, time range: ${now.toISOString()} to ${tomorrow.toISOString()}`);
       
-      // Debug each task's scheduled time
       if (data && data.length > 0) {
         data.forEach(task => {
           const taskTime = new Date(task.time);
@@ -56,11 +51,10 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       return data || [];
     },
     enabled: settings.notifications && notificationPermission === "granted",
-    refetchInterval: 60000, // Refetch every minute
-    staleTime: 30000, // Consider data stale after 30 seconds
+    refetchInterval: 60000,
+    staleTime: 30000,
   });
 
-  // Initialize notification system
   useEffect(() => {
     if (!("Notification" in window)) {
       setNotificationSupported(false);
@@ -96,7 +90,6 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     };
   }, [settings.notifications, updateSetting]);
 
-  // Schedule daily reminder
   useEffect(() => {
     if (settings.notifications && settings.dailyReminderTime && notificationPermission === "granted") {
       scheduleReminderNotification();
@@ -109,13 +102,11 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     };
   }, [settings.notifications, settings.dailyReminderTime, notificationPermission]);
 
-  // Create a separate direct task notification function - this is important
   const triggerTaskNotification = useCallback((task: any) => {
     console.log(`Triggering notification for task: ${task.title}`);
     
     if (Notification.permission === "granted" && settings.notifications) {
       try {
-        // Create browser notification with unique tag
         const uniqueTag = `task-${task.id}-${Date.now()}`;
         console.log(`Creating notification with tag: ${uniqueTag}`);
         
@@ -125,13 +116,11 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
           tag: uniqueTag
         });
         
-        // Add onclick handler for the notification
         notification.onclick = () => {
           window.focus();
           notification.close();
         };
         
-        // Play sound if enabled
         if (settings.soundEffects) {
           const audio = new Audio("/notification-sound.mp3");
           audio.play().catch(error => {
@@ -139,7 +128,6 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
           });
         }
         
-        // Use our global toast utility
         showNotificationToast(
           "Task Reminder", 
           `It's time for: ${task.title}`
@@ -158,16 +146,13 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     }
   }, [settings.notifications, settings.soundEffects]);
 
-  // Task notification scheduling - CRITICAL FIX
   useEffect(() => {
     console.log("Task notification scheduler effect triggered. Tasks count:", upcomingTasks.length);
     
-    // Clear all existing task notification timeouts
     Object.values(taskNotificationTimeoutsIds).forEach(id => {
       clearTimeout(id);
     });
     
-    // Reset timeout IDs
     setTaskNotificationTimeoutsIds({});
     
     if (!settings.notifications || notificationPermission !== "granted" || !upcomingTasks.length) {
@@ -180,27 +165,22 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     
     console.log(`Current time for task scheduling: ${new Date().toLocaleString()}`);
     
-    // Process each task and schedule its notification WITHOUT immediate execution
     upcomingTasks.forEach(task => {
       if (!task.time) {
         console.log(`Task ${task.id} has no time set, skipping`);
         return;
       }
       
-      // Parse the task time correctly
       const taskTime = new Date(task.time).getTime();
       
-      // Calculate the delay in milliseconds
       const delay = taskTime - now;
       const minutesToGo = Math.round(delay / (60 * 1000));
       
       console.log(`Scheduling task: "${task.title}", Time: ${new Date(taskTime).toLocaleString()}, Delay: ${delay}ms (${minutesToGo} minutes)`);
       
-      // Only schedule future tasks (positive delay)
       if (delay > 0) {
         console.log(`✅ Scheduling notification for task "${task.title}" in ${minutesToGo} minutes`);
         
-        // Use window.setTimeout to ensure it runs outside React
         const id = window.setTimeout(() => {
           console.log(`⏰ TIME TO EXECUTE notification for task "${task.title}"`);
           triggerTaskNotification(task);
@@ -216,7 +196,6 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     setTaskNotificationTimeoutsIds(newTimeoutIds);
     
     return () => {
-      // Clean up all timeouts when component unmounts or when dependencies change
       Object.values(newTimeoutIds).forEach(id => {
         clearTimeout(id);
       });
@@ -271,7 +250,6 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
           });
         }
         
-        // Use our global toast utility
         showNotificationToast(
           "Daily Reminder", 
           "It's time to check your tasks and habits for today!"
@@ -299,7 +277,6 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
             "You will now receive notifications from the app."
           );
           
-          // Refresh task notifications immediately
           queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
           
           if (settings.dailyReminderTime) {
@@ -341,7 +318,6 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
             "You will now receive notifications from the app."
           );
           
-          // Refresh task notifications immediately
           queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
           
           if (settings.dailyReminderTime) {
@@ -367,7 +343,6 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     if (Notification.permission === "granted" && settings.notifications) {
       try {
         console.log("Sending test notification...");
-        // Use window.setTimeout to ensure this runs outside React's timing
         window.setTimeout(() => {
           const notification = new Notification("Test Notification", {
             body: "This is a test notification from Timewise",
@@ -387,7 +362,6 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
             });
           }
           
-          // Use our global toast utility
           showSuccessToast(
             "Test Notification Sent", 
             "If you didn't see a notification, check your browser settings."
@@ -426,7 +400,6 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       const taskTime = new Date(task.time);
       const timeDiff = now.getTime() - taskTime.getTime();
       
-      // Notify about any tasks due within the last 5 minutes or about to be due in 5 minutes
       if (timeDiff >= -5 * 60 * 1000 && timeDiff <= 5 * 60 * 1000) {
         console.log(`Found task due now or very soon: "${task.title}" (${Math.round(timeDiff/1000/60)} minutes ago)`);
         triggerTaskNotification(task);
