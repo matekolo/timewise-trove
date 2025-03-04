@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -22,8 +21,8 @@ interface Task {
   priority: string;
   created_at: string;
   category?: string;
-  date?: string; // Optional date field that might be present
-  time?: string; // Optional time field
+  date?: string;
+  time?: string;
 }
 
 interface Event {
@@ -45,7 +44,6 @@ const Reports = () => {
   const [timeRange, setTimeRange] = useState("week");
   const navigate = useNavigate();
   
-  // Get the date range based on the selected timeRange and date
   const getDateRange = () => {
     const selectedDate = date || new Date();
     
@@ -57,7 +55,7 @@ const Reports = () => {
         };
       case "week":
         return { 
-          start: startOfWeek(selectedDate, { weekStartsOn: 1 }), // Monday
+          start: startOfWeek(selectedDate, { weekStartsOn: 1 }),
           end: endOfWeek(selectedDate, { weekStartsOn: 1 }) 
         };
       case "month":
@@ -78,7 +76,6 @@ const Reports = () => {
     }
   };
   
-  // Fetch all tasks
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ["tasks", "all", date?.toISOString(), timeRange],
     queryFn: async () => {
@@ -100,7 +97,6 @@ const Reports = () => {
     },
   });
   
-  // Fetch all events
   const { data: events = [], isLoading: eventsLoading } = useQuery({
     queryKey: ["events", "all"],
     queryFn: async () => {
@@ -121,7 +117,6 @@ const Reports = () => {
     },
   });
   
-  // Fetch all habits
   const { data: habits = [], isLoading: habitsLoading } = useQuery({
     queryKey: ["habits", "all"],
     queryFn: async () => {
@@ -142,9 +137,7 @@ const Reports = () => {
     },
   });
   
-  // Extract actual task date to use for filtering - important function that needs to be fixed
   const getTaskDate = (task: Task): Date => {
-    // Try to use the time field (display time) if it exists
     if (task.time) {
       try {
         return parseISO(task.time);
@@ -153,11 +146,9 @@ const Reports = () => {
       }
     }
     
-    // Fallback to created_at
     return parseISO(task.created_at);
   };
   
-  // Filter tasks based on date range
   const filteredTasks = tasks.filter(task => {
     const { start, end } = getDateRange();
     const taskDate = getTaskDate(task);
@@ -168,7 +159,6 @@ const Reports = () => {
     return isInRange;
   });
   
-  // Format habit data for chart
   const habitData = habits
     .sort((a, b) => (b.streak || 0) - (a.streak || 0))
     .slice(0, 7)
@@ -178,44 +168,35 @@ const Reports = () => {
       type: habit.type || "good"
     }));
   
-  // Generate productivity data for the chart
   const generateProductivityData = () => {
-    // Days order depends on weekStartsOn setting (1 = Monday)
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const result = [];
     
-    // Get current week's dates based on selected date
     const selectedDate = date || new Date();
-    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }); // Monday
+    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
     
     console.log("\n--- GENERATING PRODUCTIVITY DATA ---");
     console.log("Selected date:", format(selectedDate, "yyyy-MM-dd"));
     console.log("Week starting on:", format(weekStart, "yyyy-MM-dd"));
     console.log("Total tasks in database:", tasks.length);
     
-    // Debug all tasks with their actual dates
     console.log("\nAll tasks in database with their effective dates:");
     tasks.forEach(task => {
       const taskDate = getTaskDate(task);
       console.log(`Task: "${task.title}" | Created: ${task.created_at} | Time field: ${task.time || 'N/A'} | Effective date: ${format(taskDate, "yyyy-MM-dd")} | Completed: ${task.completed}`);
     });
     
-    // Generate data for each day of the week
     for (let i = 0; i < 7; i++) {
       const dayDate = addDays(weekStart, i);
       const dayName = days[i];
       
       console.log(`\nProcessing ${dayName}, ${format(dayDate, "yyyy-MM-dd")}`);
       
-      // Get tasks for this day using date comparison
       const dayTasks = tasks.filter(task => {
         const taskDate = getTaskDate(task);
-        // Get day of week for the task (0-6, with 0 being Sunday)
         const taskDayOfWeek = taskDate.getDay();
-        // Convert to Monday-based index (0-6, with 0 being Monday)
         const mondayBasedTaskDay = taskDayOfWeek === 0 ? 6 : taskDayOfWeek - 1;
         
-        // Match by day of week index instead of exact date
         const taskInDay = isSameDay(taskDate, dayDate);
         
         if (taskInDay) {
@@ -227,7 +208,6 @@ const Reports = () => {
       
       console.log(`  Total tasks for ${dayName}: ${dayTasks.length}`);
       
-      // Calculate completion percentage
       if (dayTasks.length === 0) {
         result.push({ name: dayName, value: 0 });
       } else {
@@ -242,10 +222,8 @@ const Reports = () => {
     return result;
   };
   
-  // Generate productivity data
   const productivityData = generateProductivityData();
   
-  // Generate category data
   const generateCategoryData = () => {
     const categories: Record<string, number> = {};
     
@@ -266,44 +244,87 @@ const Reports = () => {
   
   const categoryData = generateCategoryData();
   
-  // Calculate productivity score
   const completedTasksCount = filteredTasks.filter(task => task.completed).length;
   const totalTasksCount = filteredTasks.length;
   const productivityScore = totalTasksCount > 0 
     ? Math.round((completedTasksCount / totalTasksCount) * 100) 
     : 0;
   
-  // Get top habits
   const topHabits = habits
     .sort((a, b) => (b.streak || 0) - (a.streak || 0))
     .slice(0, 2);
   
   const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"];
   
-  // Download report as JSON
   const downloadReport = () => {
-    const reportData = {
-      date: date ? format(date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
-      timeRange,
-      productivityScore,
-      completedTasks: completedTasksCount,
-      totalTasks: totalTasksCount,
-      categories: categoryData,
-      productivityByDay: productivityData,
-      topHabits: topHabits.map(h => ({
-        name: h.name,
-        streak: h.streak,
-        type: h.type
-      }))
-    };
+    const reportDate = date ? format(date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
+    const reportTitle = `Productivity Report - ${format(new Date(reportDate), "MMMM d, yyyy")}`;
     
-    const jsonString = JSON.stringify(reportData, null, 2);
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${reportTitle}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; color: #333; line-height: 1.6; }
+          h1 { color: #3B82F6; margin-bottom: 30px; }
+          h2 { color: #1F2937; margin-top: 30px; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
+          .summary-box { background: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0; }
+          .score { font-size: 48px; font-weight: bold; color: #10B981; }
+          .stats { display: flex; gap: 20px; margin: 20px 0; }
+          .stat { flex: 1; padding: 15px; background: #f3f4f6; border-radius: 8px; }
+          .stat-title { font-weight: bold; margin-bottom: 5px; }
+          .categories, .habits { margin-top: 20px; }
+          .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #6B7280; }
+        </style>
+      </head>
+      <body>
+        <h1>${reportTitle}</h1>
+        
+        <div class="summary-box">
+          <h2>Productivity Summary</h2>
+          <div class="score">${productivityScore}%</div>
+          <p>Based on ${totalTasksCount} tasks (${completedTasksCount} completed)</p>
+        </div>
+        
+        <h2>Tasks by Category</h2>
+        <div class="categories">
+          <ul>
+            ${categoryData.map(cat => `<li><strong>${cat.name}:</strong> ${cat.value} tasks</li>`).join('')}
+          </ul>
+        </div>
+        
+        <h2>Top Habits</h2>
+        <div class="habits">
+          ${topHabits.length > 0 
+            ? topHabits.map(h => `<p><strong>${h.name}:</strong> ${h.streak} days ${h.type === "bad" ? "avoiding" : "streak"}</p>`).join('') 
+            : '<p>No habits tracked yet</p>'
+          }
+        </div>
+        
+        <h2>Daily Productivity</h2>
+        <div class="stats">
+          ${productivityData.map(day => 
+            `<div class="stat">
+              <div class="stat-title">${day.name}</div>
+              <div>${day.value}%</div>
+             </div>`
+          ).join('')}
+        </div>
+        
+        <div class="footer">
+          <p>Generated on ${format(new Date(), "MMMM d, yyyy 'at' h:mm a")}</p>
+        </div>
+      </body>
+      </html>
+    `;
     
-    const blob = new Blob([jsonString], { type: 'application/json' });
+    const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
+    
     const link = document.createElement('a');
     link.href = url;
-    link.download = `productivity-report-${format(new Date(), 'yyyy-MM-dd')}.json`;
+    link.download = `productivity-report-${format(new Date(), 'yyyy-MM-dd')}.html`;
     document.body.appendChild(link);
     link.click();
     
@@ -312,28 +333,24 @@ const Reports = () => {
     
     toast({
       title: "Report downloaded",
-      description: "Your productivity report has been downloaded as JSON.",
+      description: "Your productivity report has been downloaded as HTML.",
     });
   };
 
-  // Get habit color based on type
   const getHabitColor = (entry: any) => {
     return entry.type === "bad" ? "#EF4444" : "#10B981";
   };
 
-  // Handle date change
   const handleDateChange = (newDate: Date | undefined) => {
     console.log("Date changed to:", newDate);
     setDate(newDate);
   };
 
-  // Handle time range change
   const handleTimeRangeChange = (newRange: string) => {
     console.log("Time range changed to:", newRange);
     setTimeRange(newRange);
   };
 
-  // Render the reports page
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
