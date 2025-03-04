@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays, isSameDay, parseISO } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays, parseISO } from "date-fns";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +43,7 @@ const Reports = () => {
   const [timeRange, setTimeRange] = useState("week");
   const navigate = useNavigate();
   
+  // Get the date range based on the selected timeRange and date
   const getDateRange = () => {
     const selectedDate = date || new Date();
     
@@ -74,6 +76,7 @@ const Reports = () => {
     }
   };
   
+  // Fetch all tasks
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ["tasks", "all", date?.toISOString(), timeRange],
     queryFn: async () => {
@@ -94,6 +97,7 @@ const Reports = () => {
     },
   });
   
+  // Fetch all events
   const { data: events = [], isLoading: eventsLoading } = useQuery({
     queryKey: ["events", "all"],
     queryFn: async () => {
@@ -114,6 +118,7 @@ const Reports = () => {
     },
   });
   
+  // Fetch all habits
   const { data: habits = [], isLoading: habitsLoading } = useQuery({
     queryKey: ["habits", "all"],
     queryFn: async () => {
@@ -134,12 +139,16 @@ const Reports = () => {
     },
   });
   
+  // Filter tasks based on date range
   const filteredTasks = tasks.filter(task => {
     const { start, end } = getDateRange();
     const taskDate = parseISO(task.created_at);
-    return isWithinInterval(taskDate, { start, end });
+    const isInRange = isWithinInterval(taskDate, { start, end });
+    console.log(`Filtering task "${task.title}" (${format(taskDate, "yyyy-MM-dd HH:mm")}): ${isInRange ? "IN RANGE" : "OUT OF RANGE"} (${format(start, "yyyy-MM-dd")} to ${format(end, "yyyy-MM-dd")})`);
+    return isInRange;
   });
   
+  // Format habit data for chart
   const habitData = habits
     .sort((a, b) => (b.streak || 0) - (a.streak || 0))
     .slice(0, 7)
@@ -149,42 +158,56 @@ const Reports = () => {
       type: habit.type || "good"
     }));
   
+  // Generate productivity data for the chart
   const generateProductivityData = () => {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const result = [];
     
-    const weekStart = date ? 
-      startOfWeek(date, { weekStartsOn: 1 }) : 
-      startOfWeek(new Date(), { weekStartsOn: 1 });
+    // Start date for the week view
+    const selectedDate = date || new Date();
+    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
     
     console.log("\n--- GENERATING PRODUCTIVITY DATA ---");
+    console.log("Selected date:", format(selectedDate, "yyyy-MM-dd"));
     console.log("Week starting on:", format(weekStart, "yyyy-MM-dd"));
     console.log("Total tasks in database:", tasks.length);
     
+    // Debug all tasks
+    console.log("\nAll tasks in database:");
+    tasks.forEach(task => {
+      console.log(`Task: "${task.title}" | Created: ${task.created_at} | Completed: ${task.completed}`);
+    });
+    
+    // Generate data for each day of the week
     for (let i = 0; i < 7; i++) {
       const dayDate = addDays(weekStart, i);
       const dayStart = startOfDay(dayDate);
       const dayEnd = endOfDay(dayDate);
       const dayName = days[i];
       
-      console.log(`\nDay ${i+1}: ${dayName}, ${format(dayDate, "yyyy-MM-dd")}`);
+      console.log(`\nProcessing ${dayName}, ${format(dayDate, "yyyy-MM-dd")}`);
+      console.log(`  Range: ${format(dayStart, "yyyy-MM-dd HH:mm:ss")} to ${format(dayEnd, "yyyy-MM-dd HH:mm:ss")}`);
       
+      // Using startOfDay and endOfDay to compare tasks for the entire day
       const dayTasks = tasks.filter(task => {
         const taskDate = parseISO(task.created_at);
-        const inRange = isWithinInterval(taskDate, { 
+        
+        // Check if the task date is within this day's range
+        const taskInDay = isWithinInterval(taskDate, { 
           start: dayStart, 
           end: dayEnd 
         });
         
-        if (inRange) {
-          console.log(`  ✓ Task: "${task.title}", Created: ${format(taskDate, "yyyy-MM-dd HH:mm")}`);
+        if (taskInDay) {
+          console.log(`  ✓ Task "${task.title}" matches for ${dayName} (${format(taskDate, "yyyy-MM-dd HH:mm")})`);
         }
         
-        return inRange;
+        return taskInDay;
       });
       
       console.log(`  Total tasks for ${dayName}: ${dayTasks.length}`);
       
+      // Calculate completion percentage or default to 0
       if (dayTasks.length === 0) {
         result.push({ name: dayName, value: 0 });
       } else {
@@ -199,8 +222,10 @@ const Reports = () => {
     return result;
   };
   
+  // Generate productivity data
   const productivityData = generateProductivityData();
   
+  // Generate category data
   const generateCategoryData = () => {
     const categories: Record<string, number> = {};
     
@@ -221,18 +246,21 @@ const Reports = () => {
   
   const categoryData = generateCategoryData();
   
+  // Calculate productivity score
   const completedTasksCount = filteredTasks.filter(task => task.completed).length;
   const totalTasksCount = filteredTasks.length;
   const productivityScore = totalTasksCount > 0 
     ? Math.round((completedTasksCount / totalTasksCount) * 100) 
     : 0;
   
+  // Get top habits
   const topHabits = habits
     .sort((a, b) => (b.streak || 0) - (a.streak || 0))
     .slice(0, 2);
   
   const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"];
   
+  // Download report as JSON
   const downloadReport = () => {
     const reportData = {
       date: date ? format(date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
@@ -268,20 +296,24 @@ const Reports = () => {
     });
   };
 
+  // Get habit color based on type
   const getHabitColor = (entry: any) => {
     return entry.type === "bad" ? "#EF4444" : "#10B981";
   };
 
+  // Handle date change
   const handleDateChange = (newDate: Date | undefined) => {
     console.log("Date changed to:", newDate);
     setDate(newDate);
   };
 
+  // Handle time range change
   const handleTimeRangeChange = (newRange: string) => {
     console.log("Time range changed to:", newRange);
     setTimeRange(newRange);
   };
 
+  // Render the reports page
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">

@@ -27,7 +27,9 @@ const PopoverContent = React.forwardRef<
         if (
           target.closest('.rdp-nav_button') || 
           target.closest('.rdp-button') ||
-          target.closest('.rdp-day')
+          target.closest('.rdp-day') ||
+          target.closest('.rdp-tbody') ||
+          target.closest('.rdp-caption')
         ) {
           event.preventDefault();
         }
