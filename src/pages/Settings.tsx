@@ -4,13 +4,13 @@ import { motion } from "framer-motion";
 import { Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSettingsAchievements } from "@/hooks/useSettingsAchievements";
-import { showSuccessToast } from "@/utils/toastUtils";
 
-// Import the component files
+// Import the new component files
 import AppearanceSettings from "@/components/settings/AppearanceSettings";
 import NotificationSettings from "@/components/settings/NotificationSettings";
 import AccountSettings from "@/components/settings/AccountSettings";
@@ -18,7 +18,7 @@ import AccountSettings from "@/components/settings/AccountSettings";
 const Settings = () => {
   const { t } = useLanguage();
   
-  // Use our hook for settings management
+  // Use our new hook for settings management
   const { settings, updateSetting, saveUserProfile } = useUserSettings();
   const { achievements } = useSettingsAchievements();
   
@@ -44,11 +44,10 @@ const Settings = () => {
     // Update user profile if display name changed
     saveUserProfile(displayName);
     
-    // Use the new toast utility
-    showSuccessToast(
-      t("settingsSaved"),
-      "Your preferences have been updated."
-    );
+    toast({
+      title: t("settingsSaved"),
+      description: "Your preferences have been updated.",
+    });
   };
 
   return (
