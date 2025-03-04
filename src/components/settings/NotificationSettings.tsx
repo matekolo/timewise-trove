@@ -1,4 +1,3 @@
-
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -8,6 +7,8 @@ import { UserSettings } from "@/hooks/useUserSettings";
 import { toast } from "@/components/ui/use-toast";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 interface NotificationSettingsProps {
   settings: UserSettings;
@@ -19,9 +20,34 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   const [notificationSupported, setNotificationSupported] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const [timeoutId, setTimeoutId] = useState<number | null>(null);
+  const [taskNotificationTimeoutsIds, setTaskNotificationTimeoutsIds] = useState<Record<string, number>>({});
+
+  const { data: upcomingTasks = [] } = useQuery({
+    queryKey: ["upcoming-tasks"],
+    queryFn: async () => {
+      if (!settings.notifications || notificationPermission !== "granted") return [];
+      
+      const now = new Date();
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("completed", false)
+        .not("time", "is", null);
+      
+      if (error) {
+        console.error("Error fetching upcoming tasks:", error);
+        return [];
+      }
+      
+      return data || [];
+    },
+    enabled: settings.notifications && notificationPermission === "granted",
+  });
 
   useEffect(() => {
-    // Check if notifications are supported
     if (!("Notification" in window)) {
       setNotificationSupported(false);
       toast({
@@ -32,17 +58,12 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
       return;
     }
     
-    // Get the current permission state
     setNotificationPermission(Notification.permission);
     
-    // If notification permission was previously granted but settings has it disabled,
-    // update the settings to match reality
     if (Notification.permission === "granted" && !settings.notifications) {
       updateSetting('notifications', true);
     }
     
-    // If notification permission was previously denied but settings has it enabled,
-    // update the settings to match reality
     if (Notification.permission === "denied" && settings.notifications) {
       updateSetting('notifications', false);
       toast({
@@ -53,20 +74,21 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
     }
     
     return () => {
-      // Clear any timeouts when component unmounts
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
+      
+      Object.values(taskNotificationTimeoutsIds).forEach(id => {
+        clearTimeout(id);
+      });
     };
   }, [t, settings.notifications, updateSetting]);
 
-  // Schedule daily reminder
   useEffect(() => {
     if (settings.notifications && settings.dailyReminderTime && notificationPermission === "granted") {
       scheduleReminderNotification();
     }
     
-    // Cleanup previous schedule
     return () => {
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -74,38 +96,66 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
     };
   }, [settings.notifications, settings.dailyReminderTime, notificationPermission]);
 
-  const scheduleReminderNotification = () => {
-    // Clear any existing timeout
-    if (timeoutId) {
-      clearTimeout(timeoutId);
+  useEffect(() => {
+    if (settings.notifications && notificationPermission === "granted" && upcomingTasks.length > 0) {
+      Object.values(taskNotificationTimeoutsIds).forEach(id => {
+        clearTimeout(id);
+      });
+      
+      const newTimeoutIds: Record<string, number> = {};
+      
+      upcomingTasks.forEach(task => {
+        if (task.time) {
+          const taskTime = new Date(task.time);
+          if (taskTime > new Date()) {
+            const delay = taskTime.getTime() - Date.now();
+            
+            if (delay < 24 * 60 * 60 * 1000) {
+              console.log(`Scheduling notification for task "${task.title}" in ${Math.round(delay/1000/60)} minutes`);
+              
+              const id = window.setTimeout(() => {
+                triggerTaskNotification(task);
+              }, delay);
+              
+              newTimeoutIds[task.id] = id;
+            }
+          }
+        }
+      });
+      
+      setTaskNotificationTimeoutsIds(newTimeoutIds);
     }
+    
+    return () => {
+      Object.values(taskNotificationTimeoutsIds).forEach(id => {
+        clearTimeout(id);
+      });
+    };
+  }, [settings.notifications, notificationPermission, upcomingTasks]);
 
-    // Get current time and reminder time
-    const [hours, minutes] = settings.dailyReminderTime.split(':').map(Number);
-    const now = new Date();
-    const reminderDate = new Date();
-    reminderDate.setHours(hours, minutes, 0, 0);
-    
-    // If reminder time is earlier than current time, schedule for next day
-    if (reminderDate <= now) {
-      reminderDate.setDate(reminderDate.getDate() + 1);
+  const scheduleReminderNotification = () => {
+    if (settings.notifications && settings.dailyReminderTime && notificationPermission === "granted") {
+      const [hours, minutes] = settings.dailyReminderTime.split(':').map(Number);
+      const now = new Date();
+      const reminderDate = new Date();
+      reminderDate.setHours(hours, minutes, 0, 0);
+      
+      if (reminderDate <= now) {
+        reminderDate.setDate(reminderDate.getDate() + 1);
+      }
+      
+      const delay = reminderDate.getTime() - now.getTime();
+      
+      const formattedTime = reminderDate.toLocaleTimeString();
+      console.log(`Notification scheduled for: ${formattedTime} (in ${Math.round(delay/1000/60)} minutes)`);
+      
+      const id = window.setTimeout(() => {
+        triggerNotification();
+        scheduleReminderNotification();
+      }, delay);
+      
+      setTimeoutId(id);
     }
-    
-    // Calculate delay until reminder time
-    const delay = reminderDate.getTime() - now.getTime();
-    
-    // For testing - show when the notification will fire
-    const formattedTime = reminderDate.toLocaleTimeString();
-    console.log(`Notification scheduled for: ${formattedTime} (in ${Math.round(delay/1000/60)} minutes)`);
-    
-    // Schedule notification
-    const id = window.setTimeout(() => {
-      triggerNotification();
-      // Reschedule for next day
-      scheduleReminderNotification();
-    }, delay);
-    
-    setTimeoutId(id);
   };
 
   const triggerNotification = () => {
@@ -115,13 +165,11 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
         icon: "/favicon.ico"
       });
       
-      // Play sound if enabled
       if (settings.soundEffects) {
         const audio = new Audio("/notification-sound.mp3");
         audio.play().catch(console.error);
       }
       
-      // Show toast as a fallback
       toast({
         title: "Daily Reminder",
         description: "It's time to check your tasks and habits for today!",
@@ -129,10 +177,28 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
     }
   };
 
+  const triggerTaskNotification = (task: any) => {
+    if (Notification.permission === "granted" && settings.notifications) {
+      const notification = new Notification("Task Reminder", {
+        body: `It's time for: ${task.title}`,
+        icon: "/favicon.ico"
+      });
+      
+      if (settings.soundEffects) {
+        const audio = new Audio("/notification-sound.mp3");
+        audio.play().catch(console.error);
+      }
+      
+      toast({
+        title: "Task Reminder",
+        description: `It's time for: ${task.title}`,
+      });
+    }
+  };
+
   const handleNotificationChange = async (checked: boolean) => {
     if (checked) {
       try {
-        // Request permission if not already granted
         const permission = await Notification.requestPermission();
         setNotificationPermission(permission);
         
@@ -143,18 +209,15 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
             description: t("notificationsEnabledDesc"),
           });
           
-          // Schedule the reminder immediately if time is set
           if (settings.dailyReminderTime) {
             scheduleReminderNotification();
           }
         } else {
-          // Permission was denied
           toast({
             title: t("notificationsBlocked"),
             description: t("notificationsBlockedDesc"),
             variant: "destructive",
           });
-          // Don't enable notifications setting if permission was denied
           updateSetting('notifications', false);
         }
       } catch (error) {
@@ -167,7 +230,6 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
       }
     } else {
       updateSetting('notifications', false);
-      // Clear any scheduled notifications
       if (timeoutId) {
         clearTimeout(timeoutId);
         setTimeoutId(null);
@@ -178,7 +240,6 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   const handleSoundEffectChange = (checked: boolean) => {
     updateSetting('soundEffects', checked);
     if (checked) {
-      // Play a test sound
       const audio = new Audio("/notification-sound.mp3");
       audio.play().catch(error => {
         console.error("Error playing notification sound:", error);
@@ -194,7 +255,6 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   const handleReminderTimeChange = (time: string) => {
     updateSetting('dailyReminderTime', time);
     if (settings.notifications && notificationPermission === "granted") {
-      // Reschedule notification with new time
       scheduleReminderNotification();
       
       toast({
@@ -204,7 +264,6 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
     }
   };
 
-  // Function to reset notification permissions
   const requestNotificationPermission = async () => {
     if ("Notification" in window) {
       try {
@@ -218,7 +277,6 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
             description: "You will now receive notifications from the app.",
           });
           
-          // Schedule the reminder immediately if time is set
           if (settings.dailyReminderTime) {
             scheduleReminderNotification();
           }
@@ -240,7 +298,6 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
     }
   };
 
-  // For testing - add a button to trigger a test notification
   const triggerTestNotification = () => {
     if (Notification.permission === "granted" && settings.notifications) {
       const notification = new Notification("Test Notification", {
@@ -248,7 +305,6 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
         icon: "/favicon.ico"
       });
       
-      // Play sound if enabled
       if (settings.soundEffects) {
         const audio = new Audio("/notification-sound.mp3");
         audio.play().catch(console.error);
@@ -312,7 +368,6 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
           </p>
         </div>
         
-        {/* Notification permission status */}
         <div className="pt-2 pb-1 border-t border-gray-200 dark:border-gray-800">
           <p className="text-sm font-medium">Notification Permission: {notificationPermission || "unknown"}</p>
           {notificationPermission === "denied" && (

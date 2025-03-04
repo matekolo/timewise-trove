@@ -20,6 +20,7 @@ interface Task {
   completed: boolean;
   priority: string;
   created_at: string;
+  category?: string;
 }
 
 interface Event {
@@ -166,11 +167,12 @@ const Reports = () => {
   const generateCategoryData = () => {
     const categories: Record<string, number> = {};
     
-    events.forEach(event => {
-      if (categories[event.type]) {
-        categories[event.type]++;
+    filteredTasks.forEach(task => {
+      const category = task.category || 'uncategorized';
+      if (categories[category]) {
+        categories[category]++;
       } else {
-        categories[event.type] = 1;
+        categories[category] = 1;
       }
     });
     
