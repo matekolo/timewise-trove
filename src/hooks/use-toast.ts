@@ -1,3 +1,4 @@
+
 // This is the main toast hook implementation
 import * as React from "react"
 import type {
@@ -6,7 +7,7 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 5
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 5000 // Reduced from extremely long 1000000ms
 
 type ToasterToast = ToastProps & {
   id: string
@@ -54,6 +55,9 @@ interface State {
 }
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
+
+// Track active notification contents to avoid duplicates
+const activeNotifications = new Set<string>();
 
 const addToRemoveQueue = (toastId: string) => {
   if (toastTimeouts.has(toastId)) {
@@ -119,6 +123,14 @@ export const reducer = (state: State, action: Action): State => {
           toasts: [],
         }
       }
+      
+      // When removing toast, also remove from activeNotifications
+      const toastToRemove = state.toasts.find(t => t.id === action.toastId);
+      if (toastToRemove) {
+        const notificationKey = `${toastToRemove.title}:${toastToRemove.description}`;
+        activeNotifications.delete(notificationKey);
+      }
+      
       return {
         ...state,
         toasts: state.toasts.filter((t) => t.id !== action.toastId),
@@ -140,6 +152,17 @@ function dispatch(action: Action) {
 type Toast = Omit<ToasterToast, "id">
 
 function toast({ ...props }: Toast) {
+  // Check if this notification is already active
+  const notificationKey = `${props.title}:${props.description}`;
+  
+  if (activeNotifications.has(notificationKey)) {
+    console.log("Preventing duplicate notification:", notificationKey);
+    return { id: "duplicate", dismiss: () => {}, update: () => {} };
+  }
+  
+  // Add to active notifications
+  activeNotifications.add(notificationKey);
+  
   const id = genId()
 
   const update = (props: ToasterToast) =>
@@ -147,6 +170,7 @@ function toast({ ...props }: Toast) {
       type: "UPDATE_TOAST",
       toast: { ...props, id },
     })
+    
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
   dispatch({
@@ -156,7 +180,11 @@ function toast({ ...props }: Toast) {
       id,
       open: true,
       onOpenChange: (open) => {
-        if (!open) dismiss()
+        if (!open) {
+          dismiss();
+          // When dismissed, also remove from activeNotifications
+          activeNotifications.delete(notificationKey);
+        }
       },
     },
   })
@@ -188,4 +216,14 @@ function useToast() {
   }
 }
 
-export { useToast, toast }
+// Helper function to check if a notification exists
+function notificationExists(title: string, description: string): boolean {
+  return activeNotifications.has(`${title}:${description}`);
+}
+
+// Clear all active notifications (useful for testing)
+function clearAllNotifications() {
+  activeNotifications.clear();
+}
+
+export { useToast, toast, notificationExists, clearAllNotifications }

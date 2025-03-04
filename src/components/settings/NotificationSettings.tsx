@@ -4,8 +4,8 @@ import { Switch } from "@/components/ui/switch";
 import Tile from "@/components/ui/Tile";
 import { useLanguage } from "@/contexts/LanguageContext"; 
 import { UserSettings } from "@/hooks/useUserSettings";
-import { toast } from "@/hooks/use-toast";
-import { useEffect, useState } from "react";
+import { toast, notificationExists } from "@/hooks/use-toast";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -19,8 +19,9 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   const { t } = useLanguage();
   const [notificationSupported, setNotificationSupported] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
-  const [timeoutId, setTimeoutId] = useState<number | null>(null);
-  const [taskNotificationTimeoutsIds, setTaskNotificationTimeoutsIds] = useState<Record<string, number>>({});
+  const timeoutIdRef = useRef<number | null>(null);
+  const taskNotificationTimeoutsIdsRef = useRef<Record<string, number>>({});
+  const initializedRef = useRef(false);
 
   const { data: upcomingTasks = [], refetch: refetchTasks } = useQuery({
     queryKey: ["upcoming-tasks"],
@@ -57,11 +58,13 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   useEffect(() => {
     if (!("Notification" in window)) {
       setNotificationSupported(false);
-      toast({
-        title: t("notificationsNotSupported"),
-        description: t("notificationsNotSupportedDesc"),
-        variant: "destructive",
-      });
+      if (!notificationExists(t("notificationsNotSupported"), t("notificationsNotSupportedDesc"))) {
+        toast({
+          title: t("notificationsNotSupported"),
+          description: t("notificationsNotSupportedDesc"),
+          variant: "destructive",
+        });
+      }
       return;
     }
     
@@ -73,32 +76,35 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
     
     if (Notification.permission === "denied" && settings.notifications) {
       updateSetting('notifications', false);
-      toast({
-        title: "Notification Permission Denied",
-        description: "Please enable notifications in your browser settings to use this feature.",
-        variant: "destructive",
-      });
+      if (!notificationExists("Notification Permission Denied", "Please enable notifications in your browser settings to use this feature.")) {
+        toast({
+          title: "Notification Permission Denied",
+          description: "Please enable notifications in your browser settings to use this feature.",
+          variant: "destructive",
+        });
+      }
     }
     
     return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
       }
       
-      Object.values(taskNotificationTimeoutsIds).forEach(id => {
+      Object.values(taskNotificationTimeoutsIdsRef.current).forEach(id => {
         clearTimeout(id);
       });
     };
   }, [t, settings.notifications, updateSetting]);
 
   useEffect(() => {
-    if (settings.notifications && settings.dailyReminderTime && notificationPermission === "granted") {
+    if (!initializedRef.current && settings.notifications && settings.dailyReminderTime && notificationPermission === "granted") {
       scheduleReminderNotification();
+      initializedRef.current = true;
     }
     
     return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
       }
     };
   }, [settings.notifications, settings.dailyReminderTime, notificationPermission]);
@@ -106,7 +112,7 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   useEffect(() => {
     if (settings.notifications && notificationPermission === "granted" && upcomingTasks.length > 0) {
       // Clear existing timeouts
-      Object.values(taskNotificationTimeoutsIds).forEach(id => {
+      Object.values(taskNotificationTimeoutsIdsRef.current).forEach(id => {
         clearTimeout(id);
       });
       
@@ -140,11 +146,11 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
         }
       });
       
-      setTaskNotificationTimeoutsIds(newTimeoutIds);
+      taskNotificationTimeoutsIdsRef.current = newTimeoutIds;
     }
     
     return () => {
-      Object.values(taskNotificationTimeoutsIds).forEach(id => {
+      Object.values(taskNotificationTimeoutsIdsRef.current).forEach(id => {
         clearTimeout(id);
       });
     };
@@ -171,7 +177,7 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
         scheduleReminderNotification();
       }, delay);
       
-      setTimeoutId(id);
+      timeoutIdRef.current = id;
     }
   };
 
@@ -253,9 +259,9 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
       }
     } else {
       updateSetting('notifications', false);
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        setTimeoutId(null);
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
+        timeoutIdRef.current = null;
       }
     }
   };

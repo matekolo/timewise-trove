@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Plus, Filter, Check, Trash2, ArrowUp, ArrowDown, CalendarIcon, Tag, Clock } from "lucide-react";
 import Tile from "@/components/ui/Tile";
@@ -61,7 +62,8 @@ const Planner = () => {
     category: "general",
   });
   const { settings } = useUserSettings();
-  const [taskNotificationTimeoutsIds, setTaskNotificationTimeoutsIds] = useState<Record<string, number>>({});
+  const taskNotificationTimeoutsIdsRef = useRef<Record<string, number>>({});
+  const notificationsInitializedRef = useRef(false);
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks"],
@@ -85,12 +87,9 @@ const Planner = () => {
   });
 
   useEffect(() => {
-    if (settings.notifications && Notification.permission === "granted" && tasks.length > 0) {
+    // Only initialize once per component mount
+    if (!notificationsInitializedRef.current && settings.notifications && Notification.permission === "granted" && tasks.length > 0) {
       console.log("Setting up task notifications for", tasks.length, "tasks");
-      
-      Object.values(taskNotificationTimeoutsIds).forEach(id => {
-        clearTimeout(id);
-      });
       
       const newTimeoutIds: Record<string, number> = {};
       
@@ -101,6 +100,7 @@ const Planner = () => {
             const now = new Date();
             const timeDiff = taskTime.getTime() - now.getTime();
             
+            // If the task is due within the next 24 hours
             if (timeDiff > 0 && timeDiff < 24 * 60 * 60 * 1000) {
               console.log(`Scheduling notification for task "${task.title}" in ${Math.round(timeDiff/1000/60)} minutes`);
               
@@ -110,6 +110,7 @@ const Planner = () => {
               
               newTimeoutIds[task.id] = id;
             }
+            // Check for tasks that are very slightly overdue (within the last 15 minutes)
             else if (timeDiff > -15 * 60 * 1000 && timeDiff <= 0) {
               console.log(`Task "${task.title}" is slightly overdue, triggering notification now`);
               triggerTaskNotification(task);
@@ -120,11 +121,13 @@ const Planner = () => {
         }
       });
       
-      setTaskNotificationTimeoutsIds(newTimeoutIds);
+      taskNotificationTimeoutsIdsRef.current = newTimeoutIds;
+      notificationsInitializedRef.current = true;
     }
     
     return () => {
-      Object.values(taskNotificationTimeoutsIds).forEach(id => {
+      // Clean up all timeouts when component unmounts
+      Object.values(taskNotificationTimeoutsIdsRef.current).forEach(id => {
         clearTimeout(id);
       });
     };
@@ -294,11 +297,11 @@ const Planner = () => {
   };
 
   const handleDeleteTask = (taskId: string) => {
-    if (taskNotificationTimeoutsIds[taskId]) {
-      clearTimeout(taskNotificationTimeoutsIds[taskId]);
-      const newTimeoutIds = { ...taskNotificationTimeoutsIds };
+    if (taskNotificationTimeoutsIdsRef.current[taskId]) {
+      clearTimeout(taskNotificationTimeoutsIdsRef.current[taskId]);
+      const newTimeoutIds = { ...taskNotificationTimeoutsIdsRef.current };
       delete newTimeoutIds[taskId];
-      setTaskNotificationTimeoutsIds(newTimeoutIds);
+      taskNotificationTimeoutsIdsRef.current = newTimeoutIds;
     }
     
     deleteTaskMutation.mutate(taskId);

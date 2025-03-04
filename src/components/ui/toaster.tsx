@@ -12,9 +12,6 @@ import {
 export function Toaster() {
   const { toasts } = useToast();
 
-  // Add more detailed debug log to check if toasts are being rendered
-  console.log("Toaster rendering, toasts:", toasts);
-
   return (
     <ToastProvider>
       {toasts.map(function ({ id, title, description, action, ...props }) {

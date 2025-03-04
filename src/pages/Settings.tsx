@@ -10,7 +10,7 @@ import { useUserSettings } from "@/hooks/useUserSettings";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSettingsAchievements } from "@/hooks/useSettingsAchievements";
 
-// Import the new component files
+// Import the component files
 import AppearanceSettings from "@/components/settings/AppearanceSettings";
 import NotificationSettings from "@/components/settings/NotificationSettings";
 import AccountSettings from "@/components/settings/AccountSettings";
@@ -18,7 +18,7 @@ import AccountSettings from "@/components/settings/AccountSettings";
 const Settings = () => {
   const { t } = useLanguage();
   
-  // Use our new hook for settings management
+  // Use our hook for settings management
   const { settings, updateSetting, saveUserProfile } = useUserSettings();
   const { achievements } = useSettingsAchievements();
   
