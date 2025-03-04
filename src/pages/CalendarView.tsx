@@ -16,6 +16,7 @@ import { format, parseISO, isSameDay, isSameMonth, addMonths, subMonths } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DayPicker, Matcher } from "react-day-picker";
 
 interface Event {
   id: string;
@@ -26,6 +27,9 @@ interface Event {
   type: "meeting" | "personal" | "deadline" | "other";
   user_id: string;
 }
+
+// Define a type for the day modifiers that matches react-day-picker's expectations
+type CalendarModifiers = Record<string, Date[]>;
 
 const eventTypes = {
   meeting: { label: "Meeting", color: "bg-blue-100 text-blue-800", indicator: "bg-blue-500" },
@@ -168,7 +172,7 @@ const CalendarView = () => {
   }, []);
 
   const calendarModifiers = useMemo(() => {
-    const modifiers: DayModifiers = {};
+    const modifiers: CalendarModifiers = {};
     
     Object.keys(eventTypes).forEach(type => {
       modifiers[type] = events
