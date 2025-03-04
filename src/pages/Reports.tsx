@@ -557,16 +557,6 @@ const Reports = () => {
           </div>
         </Tile>
       </div>
-      
-      <div className="flex justify-center mt-4">
-        <Button 
-          onClick={() => navigate("/achievements")} 
-          variant="outline"
-          className="flex items-center gap-2"
-        >
-          View Achievements
-        </Button>
-      </div>
     </div>
   );
 };
