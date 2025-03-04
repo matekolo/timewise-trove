@@ -105,6 +105,7 @@ const Planner = () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["achievement-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
       toast({
         title: "Task added",
         description: `${newTask.title} has been added to your planner.`,
@@ -145,6 +146,7 @@ const Planner = () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["achievement-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
     },
   });
 
@@ -168,6 +170,7 @@ const Planner = () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["achievement-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
       toast({
         title: "Task deleted",
         description: "The task has been deleted from your planner.",
