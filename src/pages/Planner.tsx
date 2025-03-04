@@ -61,11 +61,9 @@ const Planner = () => {
 
   const addTaskMutation = useMutation({
     mutationFn: async (task: Omit<Task, "id">) => {
-      const { due_date, ...taskWithoutDueDate } = task as any;
-      
       const { data, error } = await supabase
         .from("tasks")
-        .insert(taskWithoutDueDate)
+        .insert(task)
         .select()
         .single();
       
@@ -377,10 +375,10 @@ const Planner = () => {
                       <p className="text-sm text-muted-foreground">{task.description}</p>
                     )}
                     
-                    {task.due_date && (
+                    {task.time && (
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <CalendarIcon className="h-3 w-3" />
-                        <span>{format(new Date(task.due_date), "PPP")}</span>
+                        <span>{format(new Date(task.time), "PPP")}</span>
                       </div>
                     )}
                   </div>
