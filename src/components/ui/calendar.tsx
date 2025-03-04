@@ -1,7 +1,7 @@
 
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker } from "react-day-picker";
+import { DayPicker, DayClickEventHandler } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -78,32 +78,29 @@ function Calendar({
     );
   };
 
-  // Modify the onSelect handler to prevent popover close if needed
-  const handleDaySelect = React.useCallback(
-    (day: Date | undefined, selectedDay: Date, activeModifiers: Record<string, boolean>) => {
-      // Call the original onSelect handler
-      if (props.onSelect) {
-        // When preventPopoverClose is true, we use a synthetic event with stopPropagation
-        if (preventPopoverClose) {
-          const syntheticEvent = {
-            target: { value: day },
-            preventDefault: () => {},
-            stopPropagation: () => {},
-          } as unknown as React.MouseEvent<HTMLButtonElement>;
-          
-          // Use setTimeout to ensure the event is processed after the React event cycle
-          setTimeout(() => {
-            props.onSelect?.(day, selectedDay, activeModifiers, syntheticEvent);
-          }, 0);
-          
-          return false; // Prevent default DayPicker behavior
-        } else {
-          return props.onSelect(day, selectedDay, activeModifiers);
+  // Modify the onDayClick handler to prevent popover close if needed
+  const handleDayClick: DayClickEventHandler = React.useCallback(
+    (day, modifiers, e) => {
+      if (preventPopoverClose && e) {
+        // Stop propagation to prevent the popover from closing
+        e.stopPropagation();
+        
+        // Call the original onDayClick handler if it exists
+        if (props.onDayClick) {
+          props.onDayClick(day, modifiers, e);
         }
+        
+        // If onSelect is provided as a custom prop, call it
+        const onSelectProp = props as unknown as { onSelect?: (date: Date | undefined) => void };
+        if (onSelectProp.onSelect) {
+          onSelectProp.onSelect(day);
+        }
+      } else if (props.onDayClick) {
+        // Normal behavior without prevention
+        props.onDayClick(day, modifiers, e);
       }
-      return undefined;
     },
-    [props.onSelect, preventPopoverClose]
+    [props, preventPopoverClose]
   );
 
   return (
@@ -148,7 +145,7 @@ function Calendar({
         IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
       }}
-      onSelect={handleDaySelect}
+      onDayClick={handleDayClick}
       {...props}
     />
   );
