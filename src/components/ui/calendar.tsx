@@ -119,7 +119,9 @@ function Calendar({
         IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
         Day: ({ date, displayMonth, ...dayProps }) => {
           const dateObj = new Date(date);
-          return renderDay(dateObj, dayProps.modifiers || {});
+          // Access modifiers safely by providing a fallback empty object
+          const modifiers = (dayProps.modifiers || {}) as Record<string, boolean>;
+          return renderDay(dateObj, modifiers);
         }
       }}
       {...props}
