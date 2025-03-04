@@ -25,7 +25,12 @@ const PopoverContent = React.forwardRef<
       onPointerDownOutside={(e) => {
         const target = e.target as Element;
         // Don't close when clicking inside any calendar element
-        if (target.closest('.rdp') || target.closest('[data-radix-popper-content-wrapper]')) {
+        if (
+          target.closest('.rdp') || 
+          target.closest('[data-radix-popper-content-wrapper]') ||
+          target.closest('.rdp-nav_button') ||
+          target.closest('.rdp-caption_label')
+        ) {
           e.preventDefault();
         }
       }}
