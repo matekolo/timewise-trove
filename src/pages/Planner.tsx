@@ -19,7 +19,6 @@ interface Task {
   title: string;
   description?: string;
   priority: "low" | "medium" | "high";
-  due_date?: string;
   completed: boolean;
   user_id: string;
   created_at?: string;
@@ -36,7 +35,6 @@ const Planner = () => {
     title: "",
     description: "",
     priority: "medium",
-    due_date: new Date().toISOString(),
     completed: false,
   });
 
@@ -63,11 +61,11 @@ const Planner = () => {
 
   const addTaskMutation = useMutation({
     mutationFn: async (task: Omit<Task, "id">) => {
-      const { category, ...taskWithoutCategory } = task as any;
+      const { due_date, ...taskWithoutDueDate } = task as any;
       
       const { data, error } = await supabase
         .from("tasks")
-        .insert(taskWithoutCategory)
+        .insert(taskWithoutDueDate)
         .select()
         .single();
       
@@ -95,7 +93,6 @@ const Planner = () => {
         title: "",
         description: "",
         priority: "medium",
-        due_date: new Date().toISOString(),
         completed: false,
       });
       setIsDialogOpen(false);
@@ -293,33 +290,6 @@ const Planner = () => {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Due date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className="w-full flex justify-between"
-                    >
-                      {newTask.due_date ? format(new Date(newTask.due_date), "PPP") : "Pick a date"}
-                      <CalendarIcon className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={newTask.due_date ? new Date(newTask.due_date) : undefined}
-                      onSelect={(selectedDate) => {
-                        if (selectedDate) {
-                          setNewTask({ ...newTask, due_date: selectedDate.toISOString() });
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
               </div>
             </div>
             

@@ -51,8 +51,13 @@ export const useUserSettings = () => {
       }
     };
 
-    // Load settings immediately
-    loadSettings();
+    // Add event listener for DOM content loaded to ensure 
+    // dark mode is correctly applied on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadSettings);
+    } else {
+      loadSettings();
+    }
 
     // Listen for storage events (when settings are updated from another tab)
     const handleStorageChange = (event: StorageEvent) => {
@@ -79,6 +84,9 @@ export const useUserSettings = () => {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('settings-updated', handleSettingsUpdate);
+      if (document.readyState === 'loading') {
+        document.removeEventListener('DOMContentLoaded', loadSettings);
+      }
     };
   }, []);
 
@@ -87,8 +95,11 @@ export const useUserSettings = () => {
     // Apply dark mode
     if (settingsToApply.darkMode) {
       document.documentElement.classList.add('dark');
+      // Explicitly store the preference in localStorage as well
+      localStorage.setItem('theme-mode', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme-mode', 'light');
     }
     
     // Apply theme color
@@ -110,8 +121,7 @@ export const useUserSettings = () => {
       scheduleReminderNotification(settingsToApply.dailyReminderTime);
     }
     
-    // Trigger translation or other language-specific changes here
-    // This will be handled in a separate component or function
+    // Log for debugging
     console.log("Settings applied:", settingsToApply);
   };
 

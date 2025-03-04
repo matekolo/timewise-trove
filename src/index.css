@@ -76,7 +76,7 @@
   /* Fixed the blue theme values to ensure it's properly displayed */
   .theme-blue {
     --primary: 210 100% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 210 40% 98%;
   }
   
   .theme-green {
@@ -99,7 +99,7 @@
     --primary-foreground: 210 40% 98%;
   }
   
-  /* Added Gold theme for the streak master achievement */
+  /* Gold theme for streak master achievement */
   .theme-gold {
     --primary: 45 100% 50%;
     --primary-foreground: 0 0% 10%;

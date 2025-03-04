@@ -7,6 +7,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { UserSettings } from "@/hooks/useUserSettings";
 import { toast } from "@/components/ui/use-toast";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 interface NotificationSettingsProps {
   settings: UserSettings;
@@ -16,6 +17,7 @@ interface NotificationSettingsProps {
 const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsProps) => {
   const { t } = useLanguage();
   const [notificationSupported, setNotificationSupported] = useState(true);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const [timeoutId, setTimeoutId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -27,6 +29,27 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
         description: t("notificationsNotSupportedDesc"),
         variant: "destructive",
       });
+      return;
+    }
+    
+    // Get the current permission state
+    setNotificationPermission(Notification.permission);
+    
+    // If notification permission was previously granted but settings has it disabled,
+    // update the settings to match reality
+    if (Notification.permission === "granted" && !settings.notifications) {
+      updateSetting('notifications', true);
+    }
+    
+    // If notification permission was previously denied but settings has it enabled,
+    // update the settings to match reality
+    if (Notification.permission === "denied" && settings.notifications) {
+      updateSetting('notifications', false);
+      toast({
+        title: "Notification Permission Denied",
+        description: "Please enable notifications in your browser settings to use this feature.",
+        variant: "destructive",
+      });
     }
     
     return () => {
@@ -35,11 +58,11 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
         clearTimeout(timeoutId);
       }
     };
-  }, [t]);
+  }, [t, settings.notifications, updateSetting]);
 
   // Schedule daily reminder
   useEffect(() => {
-    if (settings.notifications && settings.dailyReminderTime) {
+    if (settings.notifications && settings.dailyReminderTime && notificationPermission === "granted") {
       scheduleReminderNotification();
     }
     
@@ -49,7 +72,7 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
         clearTimeout(timeoutId);
       }
     };
-  }, [settings.notifications, settings.dailyReminderTime]);
+  }, [settings.notifications, settings.dailyReminderTime, notificationPermission]);
 
   const scheduleReminderNotification = () => {
     // Clear any existing timeout
@@ -109,7 +132,10 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   const handleNotificationChange = async (checked: boolean) => {
     if (checked) {
       try {
+        // Request permission if not already granted
         const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
+        
         if (permission === "granted") {
           updateSetting('notifications', true);
           toast({
@@ -122,11 +148,14 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
             scheduleReminderNotification();
           }
         } else {
+          // Permission was denied
           toast({
             title: t("notificationsBlocked"),
             description: t("notificationsBlockedDesc"),
             variant: "destructive",
           });
+          // Don't enable notifications setting if permission was denied
+          updateSetting('notifications', false);
         }
       } catch (error) {
         console.error("Error requesting notification permission:", error);
@@ -164,7 +193,7 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
 
   const handleReminderTimeChange = (time: string) => {
     updateSetting('dailyReminderTime', time);
-    if (settings.notifications) {
+    if (settings.notifications && notificationPermission === "granted") {
       // Reschedule notification with new time
       scheduleReminderNotification();
       
@@ -172,6 +201,42 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
         title: t("reminderSet"),
         description: t("reminderSetDesc").replace('{time}', time),
       });
+    }
+  };
+
+  // Function to reset notification permissions
+  const requestNotificationPermission = async () => {
+    if ("Notification" in window) {
+      try {
+        const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
+        
+        if (permission === "granted") {
+          updateSetting('notifications', true);
+          toast({
+            title: "Notifications Enabled",
+            description: "You will now receive notifications from the app.",
+          });
+          
+          // Schedule the reminder immediately if time is set
+          if (settings.dailyReminderTime) {
+            scheduleReminderNotification();
+          }
+        } else {
+          toast({
+            title: "Notification Permission Denied",
+            description: "Please enable notifications in your browser settings to use this feature.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error requesting notification permission:", error);
+        toast({
+          title: "Error",
+          description: "There was an error requesting notification permission.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -188,6 +253,11 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
         const audio = new Audio("/notification-sound.mp3");
         audio.play().catch(console.error);
       }
+      
+      toast({
+        title: "Test Notification Sent",
+        description: "If you didn't see a notification, check your browser settings.",
+      });
     } else {
       toast({
         title: "Notification Error",
@@ -242,17 +312,35 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
           </p>
         </div>
         
-        {/* Test button for notifications */}
-        {settings.notifications && (
-          <div className="pt-4">
-            <button 
+        {/* Notification permission status */}
+        <div className="pt-2 pb-1 border-t border-gray-200 dark:border-gray-800">
+          <p className="text-sm font-medium">Notification Permission: {notificationPermission || "unknown"}</p>
+          {notificationPermission === "denied" && (
+            <p className="text-xs text-red-500 mt-1">
+              Notifications are blocked by your browser. Please update your browser settings to allow notifications.
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={requestNotificationPermission}
+          >
+            Request Permission
+          </Button>
+          
+          {notificationPermission === "granted" && (
+            <Button 
+              variant="outline" 
+              size="sm" 
               onClick={triggerTestNotification}
-              className="text-sm text-primary underline"
             >
-              Send test notification
-            </button>
-          </div>
-        )}
+              Send Test Notification
+            </Button>
+          )}
+        </div>
       </div>
     </Tile>
   );
