@@ -34,6 +34,7 @@ interface Habit {
   id: string;
   name: string;
   streak: number;
+  type: string;
 }
 
 const Reports = () => {
@@ -138,7 +139,8 @@ const Reports = () => {
     .slice(0, 7)
     .map(habit => ({
       name: habit.name.length > 10 ? habit.name.slice(0, 10) + '...' : habit.name,
-      value: habit.streak || 0
+      value: habit.streak || 0,
+      type: habit.type || "good"
     }));
   
   const generateProductivityData = () => {
@@ -310,8 +312,18 @@ const Reports = () => {
                     borderRadius: "0.5rem",
                     boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
                   }}
+                  formatter={(value, name, props) => {
+                    const habitType = props.payload.type;
+                    return [`${value} day ${habitType === "bad" ? "avoiding" : "streak"}`, name];
+                  }}
                 />
-                <Bar dataKey="value" fill="#10B981" radius={[4, 4, 0, 0]} />
+                <Bar 
+                  dataKey="value" 
+                  fill="#10B981" 
+                  radius={[4, 4, 0, 0]} 
+                  name="Progress"
+                  fill={(data) => data.type === "bad" ? "#EF4444" : "#10B981"}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -379,8 +391,8 @@ const Reports = () => {
                     <div key={habit.id} className="flex items-center justify-between">
                       <span className="text-sm">{habit.name}</span>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <span className="bg-green-500 w-2 h-2 rounded-full"></span>
-                        {habit.streak} days streak
+                        <span className={`${habit.type === "bad" ? "bg-red-500" : "bg-green-500"} w-2 h-2 rounded-full`}></span>
+                        {habit.streak} days {habit.type === "bad" ? "avoiding" : "streak"}
                       </div>
                     </div>
                   ))

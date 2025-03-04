@@ -394,11 +394,13 @@ const Planner = () => {
                         {date ? format(date, "PPP") : "Pick a date"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
+                    <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={date}
-                        onSelect={setDate}
+                        onSelect={(newDate) => {
+                          setDate(newDate);
+                        }}
                         initialFocus
                       />
                     </PopoverContent>
