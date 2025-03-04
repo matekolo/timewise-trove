@@ -1,3 +1,4 @@
+
 import { useToast } from "@/hooks/use-toast"
 import {
   Toast,
@@ -10,6 +11,9 @@ import {
 
 export function Toaster() {
   const { toasts } = useToast()
+
+  // Add debug log to check if toasts are being rendered
+  console.log("Toaster rendering, toasts:", toasts);
 
   return (
     <ToastProvider>

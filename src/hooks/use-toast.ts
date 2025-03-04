@@ -1,3 +1,5 @@
+
+// This file is the source of truth for toast functionality
 import * as React from "react"
 
 import type {
@@ -6,7 +8,7 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 5000 // Reduced from 1000000 to 5000ms (5 seconds)
 
 type ToasterToast = ToastProps & {
   id: string
@@ -142,6 +144,9 @@ type Toast = Omit<ToasterToast, "id">
 function toast({ ...props }: Toast) {
   const id = genId()
 
+  // Log when a toast is created for debugging
+  console.log(`Creating toast with ID: ${id}`, props);
+
   const update = (props: ToasterToast) =>
     dispatch({
       type: "UPDATE_TOAST",
@@ -149,17 +154,22 @@ function toast({ ...props }: Toast) {
     })
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
-  dispatch({
-    type: "ADD_TOAST",
-    toast: {
-      ...props,
-      id,
-      open: true,
-      onOpenChange: (open) => {
-        if (!open) dismiss()
+  // Ensure the toast is visible for a reasonable time
+  // Use setTimeout to allow the component to render first
+  setTimeout(() => {
+    dispatch({
+      type: "ADD_TOAST",
+      toast: {
+        ...props,
+        id,
+        open: true,
+        onOpenChange: (open) => {
+          if (!open) dismiss()
+        },
       },
-    },
-  })
+    });
+    console.log(`Toast ${id} added to state`);
+  }, 50);
 
   return {
     id: id,

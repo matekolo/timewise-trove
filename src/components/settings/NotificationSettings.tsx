@@ -4,7 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import Tile from "@/components/ui/Tile";
 import { useLanguage } from "@/contexts/LanguageContext"; 
 import { UserSettings } from "@/hooks/useUserSettings";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,29 +22,36 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   const [timeoutId, setTimeoutId] = useState<number | null>(null);
   const [taskNotificationTimeoutsIds, setTaskNotificationTimeoutsIds] = useState<Record<string, number>>({});
 
-  const { data: upcomingTasks = [] } = useQuery({
+  const { data: upcomingTasks = [], refetch: refetchTasks } = useQuery({
     queryKey: ["upcoming-tasks"],
     queryFn: async () => {
       if (!settings.notifications || notificationPermission !== "granted") return [];
       
-      const now = new Date();
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("completed", false)
-        .not("time", "is", null);
-      
-      if (error) {
-        console.error("Error fetching upcoming tasks:", error);
+      try {
+        const now = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        const { data, error } = await supabase
+          .from("tasks")
+          .select("*")
+          .eq("completed", false)
+          .not("time", "is", null);
+        
+        if (error) {
+          console.error("Error fetching upcoming tasks:", error);
+          return [];
+        }
+        
+        console.log("Fetched upcoming tasks:", data);
+        return data || [];
+      } catch (err) {
+        console.error("Error in queryFn for upcoming-tasks:", err);
         return [];
       }
-      
-      return data || [];
     },
     enabled: settings.notifications && notificationPermission === "granted",
+    refetchInterval: 60000,
   });
 
   useEffect(() => {
@@ -106,19 +113,30 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
       
       upcomingTasks.forEach(task => {
         if (task.time) {
-          const taskTime = new Date(task.time);
-          if (taskTime > new Date()) {
-            const delay = taskTime.getTime() - Date.now();
+          try {
+            const taskTime = new Date(task.time);
+            const now = new Date();
+            const timeDiff = taskTime.getTime() - now.getTime();
             
-            if (delay < 24 * 60 * 60 * 1000) {
-              console.log(`Scheduling notification for task "${task.title}" in ${Math.round(delay/1000/60)} minutes`);
+            console.log(`Task "${task.title}" scheduled for ${taskTime.toLocaleString()}`);
+            console.log(`Time difference: ${Math.round(timeDiff/1000/60)} minutes`);
+            
+            if (timeDiff > 0 && timeDiff < 24 * 60 * 60 * 1000) {
+              console.log(`Scheduling notification for task "${task.title}" in ${Math.round(timeDiff/1000/60)} minutes`);
               
               const id = window.setTimeout(() => {
+                console.log(`Triggering notification for task "${task.title}"`);
                 triggerTaskNotification(task);
-              }, delay);
+              }, timeDiff);
               
               newTimeoutIds[task.id] = id;
             }
+            else if (timeDiff > -15 * 60 * 1000 && timeDiff <= 0) {
+              console.log(`Task "${task.title}" is slightly overdue, triggering notification now`);
+              triggerTaskNotification(task);
+            }
+          } catch (err) {
+            console.error(`Error scheduling notification for task "${task.title}":`, err);
           }
         }
       });
@@ -159,6 +177,7 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   };
 
   const triggerNotification = () => {
+    console.log("Triggering daily reminder notification");
     if (Notification.permission === "granted" && settings.notifications) {
       const notification = new Notification("Timewise Daily Reminder", {
         body: "It's time to check your tasks and habits for today!",
@@ -170,28 +189,82 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
         audio.play().catch(console.error);
       }
       
-      toast({
-        title: "Daily Reminder",
-        description: "It's time to check your tasks and habits for today!",
-      });
+      setTimeout(() => {
+        toast({
+          title: "Daily Reminder",
+          description: "It's time to check your tasks and habits for today!",
+        });
+      }, 50);
     }
   };
 
   const triggerTaskNotification = (task: any) => {
+    console.log("Triggering task notification for:", task.title);
     if (Notification.permission === "granted" && settings.notifications) {
-      const notification = new Notification("Task Reminder", {
-        body: `It's time for: ${task.title}`,
-        icon: "/favicon.ico"
+      try {
+        const notification = new Notification("Task Reminder", {
+          body: `It's time for: ${task.title}`,
+          icon: "/favicon.ico"
+        });
+        
+        if (settings.soundEffects) {
+          const audio = new Audio("/notification-sound.mp3");
+          audio.play().catch(err => console.error("Error playing sound:", err));
+        }
+        
+        setTimeout(() => {
+          toast({
+            title: "Task Reminder",
+            description: `It's time for: ${task.title}`,
+          });
+          console.log("Toast notification created for task:", task.title);
+        }, 100);
+      } catch (err) {
+        console.error("Error triggering task notification:", err);
+      }
+    }
+  };
+
+  const checkForDueTasks = async () => {
+    try {
+      await refetchTasks();
+      
+      const now = new Date();
+      const startTime = new Date(now.getTime() - 15 * 60 * 1000);
+      const endTime = new Date(now.getTime() + 15 * 60 * 1000);
+      
+      console.log("Checking for tasks due between", startTime.toLocaleTimeString(), "and", endTime.toLocaleTimeString());
+      
+      const dueTasks = upcomingTasks.filter(task => {
+        if (!task.time) return false;
+        
+        const taskTime = new Date(task.time);
+        return taskTime >= startTime && taskTime <= endTime;
       });
       
-      if (settings.soundEffects) {
-        const audio = new Audio("/notification-sound.mp3");
-        audio.play().catch(console.error);
+      if (dueTasks.length > 0) {
+        console.log("Found due tasks:", dueTasks);
+        dueTasks.forEach(task => {
+          setTimeout(() => triggerTaskNotification(task), 100);
+        });
+        
+        toast({
+          title: "Due Tasks Found",
+          description: `Found ${dueTasks.length} task(s) due around this time.`,
+        });
+      } else {
+        console.log("No due tasks found in the current time window");
+        toast({
+          title: "No Due Tasks",
+          description: "No tasks are due in the current time window (±15 minutes).",
+        });
       }
-      
+    } catch (err) {
+      console.error("Error checking for due tasks:", err);
       toast({
-        title: "Task Reminder",
-        description: `It's time for: ${task.title}`,
+        title: "Error",
+        description: "There was an error checking for due tasks.",
+        variant: "destructive",
       });
     }
   };
@@ -387,15 +460,38 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
           </Button>
           
           {notificationPermission === "granted" && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={triggerTestNotification}
-            >
-              Send Test Notification
-            </Button>
+            <>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={triggerTestNotification}
+              >
+                Send Test Notification
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={checkForDueTasks}
+              >
+                Check For Due Tasks
+              </Button>
+            </>
           )}
         </div>
+        
+        {upcomingTasks.length > 0 && (
+          <div className="pt-4">
+            <p className="text-sm font-medium mb-2">Upcoming Task Notifications:</p>
+            <ul className="text-xs text-muted-foreground space-y-1">
+              {upcomingTasks.map(task => (
+                <li key={task.id}>
+                  {task.title} - {new Date(task.time).toLocaleString()}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </Tile>
   );
