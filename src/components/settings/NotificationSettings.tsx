@@ -9,6 +9,8 @@ import DailyReminderTime from "@/components/settings/notifications/DailyReminder
 import NotificationPermissionStatus from "@/components/settings/notifications/NotificationPermissionStatus";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { InfoIcon } from "lucide-react";
+import { showNotificationToast } from "@/utils/toastUtils";
+import { Button } from "@/components/ui/button";
 
 interface NotificationSettingsProps {
   settings: UserSettings;
@@ -22,7 +24,8 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
     notificationPermission,
     handleNotificationChange,
     requestNotificationPermission,
-    triggerTestNotification
+    triggerTestNotification,
+    manuallyCheckOverdueTasks
   } = useNotifications(settings, updateSetting);
 
   const handleSoundEffectChange = (checked: boolean) => {
@@ -37,6 +40,14 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
 
   const handleReminderTimeChange = (time: string) => {
     updateSetting('dailyReminderTime', time);
+  };
+  
+  // Add a function to test global toast visibility
+  const testGlobalToast = () => {
+    showNotificationToast(
+      "Global Toast Test", 
+      "This toast should be visible throughout the entire application."
+    );
   };
 
   return (
@@ -73,6 +84,26 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
           onRequestPermission={requestNotificationPermission}
           onTestNotification={triggerTestNotification}
         />
+        
+        <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200 dark:border-gray-800">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={testGlobalToast}
+          >
+            Test Global Toast
+          </Button>
+          
+          {settings.notifications && notificationPermission === "granted" && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={manuallyCheckOverdueTasks}
+            >
+              Check For Due Tasks
+            </Button>
+          )}
+        </div>
       </div>
     </Tile>
   );

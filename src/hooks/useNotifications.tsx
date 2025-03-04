@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast"; // Correct import from hooks/use-toast
 import { UserSettings } from "@/hooks/useUserSettings";
 
 export const useNotifications = (settings: UserSettings, updateSetting: (key: keyof UserSettings, value: any) => void) => {
@@ -142,7 +142,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
           });
         }
         
-        // Also show in-app toast
+        // Also show in-app toast - Use direct toast from hooks/use-toast
         toast({
           title: "Task Reminder",
           description: `It's time for: ${task.title}`,
@@ -286,6 +286,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
           });
         }
         
+        // Use the directly imported toast function
         toast({
           title: "Daily Reminder",
           description: "It's time to check your tasks and habits for today!",
@@ -385,30 +386,34 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     if (Notification.permission === "granted" && settings.notifications) {
       try {
         console.log("Sending test notification...");
-        const notification = new Notification("Test Notification", {
-          body: "This is a test notification from Timewise",
-          icon: "/favicon.ico",
-          tag: `test-notification-${Date.now()}`
-        });
-        
-        notification.onclick = () => {
-          window.focus();
-          notification.close();
-        };
-        
-        if (settings.soundEffects) {
-          const audio = new Audio("/notification-sound.mp3");
-          audio.play().catch(error => {
-            console.error("Error playing notification sound:", error);
+        // Use window.setTimeout to ensure this runs outside React's timing
+        window.setTimeout(() => {
+          const notification = new Notification("Test Notification", {
+            body: "This is a test notification from Timewise",
+            icon: "/favicon.ico",
+            tag: `test-notification-${Date.now()}`
           });
-        }
-        
-        toast({
-          title: "Test Notification Sent",
-          description: "If you didn't see a notification, check your browser settings.",
-        });
-        
-        console.log("Test notification successfully sent");
+          
+          notification.onclick = () => {
+            window.focus();
+            notification.close();
+          };
+          
+          if (settings.soundEffects) {
+            const audio = new Audio("/notification-sound.mp3");
+            audio.play().catch(error => {
+              console.error("Error playing notification sound:", error);
+            });
+          }
+          
+          // Direct toast call
+          toast({
+            title: "Test Notification Sent",
+            description: "If you didn't see a notification, check your browser settings.",
+          });
+          
+          console.log("Test notification successfully sent");
+        }, 0);
       } catch (error) {
         console.error("Error sending test notification:", error);
         toast({
@@ -419,7 +424,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       }
     } else {
       toast({
-        title: "Notification Error",
+        title: "Notification Error", 
         description: "Notifications are not enabled or permission was denied",
         variant: "destructive",
       });

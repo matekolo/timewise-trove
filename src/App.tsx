@@ -20,27 +20,29 @@ const queryClient = new QueryClient();
 
 const App = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        {/* Both Toaster components outside of Routes and directly in the root component */}
-        <Toaster />
-        <Sonner />
-        <Routes>
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="habits" element={<HabitTracker />} />
-            <Route path="planner" element={<Planner />} />
-            <Route path="notes" element={<Notes />} />
-            <Route path="calendar" element={<CalendarView />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="achievements" element={<Achievements />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <>
+      {/* Place Toaster components at the root level, outside everything */}
+      <Toaster />
+      <Sonner />
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="habits" element={<HabitTracker />} />
+              <Route path="planner" element={<Planner />} />
+              <Route path="notes" element={<Notes />} />
+              <Route path="calendar" element={<CalendarView />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="achievements" element={<Achievements />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </>
   );
 };
 
