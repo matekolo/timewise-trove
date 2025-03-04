@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -8,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format, isAfter, isBefore, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays, isSameDay } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays, isSameDay, parseISO } from "date-fns";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -91,7 +90,6 @@ const Reports = () => {
         throw error;
       }
       
-      console.log("Tasks fetched:", data);
       return data as Task[];
     },
   });
@@ -139,7 +137,6 @@ const Reports = () => {
   const filteredTasks = tasks.filter(task => {
     const { start, end } = getDateRange();
     const taskDate = parseISO(task.created_at);
-    console.log("Task:", task.title, "Date:", format(taskDate, "yyyy-MM-dd"), "In range:", isWithinInterval(taskDate, { start, end }));
     return isWithinInterval(taskDate, { start, end });
   });
   
@@ -153,47 +150,52 @@ const Reports = () => {
     }));
   
   const generateProductivityData = () => {
-    const { start, end } = getDateRange();
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const result = [];
     
-    let currentDay = startOfWeek(new Date(), { weekStartsOn: 1 });
-    if (date) {
-      currentDay = startOfWeek(date, { weekStartsOn: 1 });
-    }
+    const weekStart = date ? 
+      startOfWeek(date, { weekStartsOn: 1 }) : 
+      startOfWeek(new Date(), { weekStartsOn: 1 });
     
-    console.log("Current day start:", format(currentDay, "yyyy-MM-dd"));
-    console.log("Date range:", format(start, "yyyy-MM-dd"), "to", format(end, "yyyy-MM-dd"));
-    console.log("Filtered tasks total:", filteredTasks.length);
-    console.log("All tasks:", tasks.map(t => `${t.title} (${t.created_at})`));
+    console.log("\n--- GENERATING PRODUCTIVITY DATA ---");
+    console.log("Week starting on:", format(weekStart, "yyyy-MM-dd"));
+    console.log("Total tasks in database:", tasks.length);
     
     for (let i = 0; i < 7; i++) {
+      const dayDate = addDays(weekStart, i);
+      const dayStart = startOfDay(dayDate);
+      const dayEnd = endOfDay(dayDate);
       const dayName = days[i];
-      const dayDate = addDays(currentDay, i);
       
-      console.log(`\nChecking day ${i+1}: ${dayName}, ${format(dayDate, "yyyy-MM-dd")}`);
+      console.log(`\nDay ${i+1}: ${dayName}, ${format(dayDate, "yyyy-MM-dd")}`);
       
-      // Check all tasks for this specific day using isSameDay
       const dayTasks = tasks.filter(task => {
         const taskDate = parseISO(task.created_at);
-        const isSameDayResult = isSameDay(taskDate, dayDate);
-        console.log(`  Task: "${task.title}", Created: ${format(taskDate, "yyyy-MM-dd")}, Match: ${isSameDayResult}`);
-        return isSameDayResult;
+        const inRange = isWithinInterval(taskDate, { 
+          start: dayStart, 
+          end: dayEnd 
+        });
+        
+        if (inRange) {
+          console.log(`  ✓ Task: "${task.title}", Created: ${format(taskDate, "yyyy-MM-dd HH:mm")}`);
+        }
+        
+        return inRange;
       });
       
-      console.log(`  ${dayName} has ${dayTasks.length} tasks total`);
+      console.log(`  Total tasks for ${dayName}: ${dayTasks.length}`);
       
       if (dayTasks.length === 0) {
         result.push({ name: dayName, value: 0 });
       } else {
         const completedCount = dayTasks.filter(task => task.completed).length;
         const percentage = Math.round((completedCount / dayTasks.length) * 100);
-        console.log(`  ${dayName} completion: ${completedCount}/${dayTasks.length} = ${percentage}%`);
+        console.log(`  Completion: ${completedCount}/${dayTasks.length} = ${percentage}%`);
         result.push({ name: dayName, value: percentage });
       }
     }
     
-    console.log("Final productivity data:", result);
+    console.log("\nFinal productivity data:", result);
     return result;
   };
   
@@ -271,10 +273,12 @@ const Reports = () => {
   };
 
   const handleDateChange = (newDate: Date | undefined) => {
+    console.log("Date changed to:", newDate);
     setDate(newDate);
   };
 
   const handleTimeRangeChange = (newRange: string) => {
+    console.log("Time range changed to:", newRange);
     setTimeRange(newRange);
   };
 
