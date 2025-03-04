@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +33,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       return data || [];
     },
     enabled: settings.notifications && notificationPermission === "granted",
+    refetchInterval: 60000,
   });
 
   useEffect(() => {
@@ -96,18 +96,17 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       upcomingTasks.forEach(task => {
         if (task.time) {
           const taskTime = new Date(task.time);
-          if (taskTime > new Date()) {
-            const delay = taskTime.getTime() - Date.now();
+          const now = new Date();
+          const delay = taskTime.getTime() - now.getTime();
+          
+          if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
+            console.log(`Scheduling notification for task "${task.title}" in ${Math.round(delay/1000/60)} minutes`);
             
-            if (delay < 24 * 60 * 60 * 1000) {
-              console.log(`Scheduling notification for task "${task.title}" in ${Math.round(delay/1000/60)} minutes`);
-              
-              const id = window.setTimeout(() => {
-                triggerTaskNotification(task);
-              }, delay);
-              
-              newTimeoutIds[task.id] = id;
-            }
+            const id = window.setTimeout(() => {
+              triggerTaskNotification(task);
+            }, delay);
+            
+            newTimeoutIds[task.id] = id;
           }
         }
       });
@@ -120,7 +119,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
         clearTimeout(id);
       });
     };
-  }, [settings.notifications, notificationPermission, upcomingTasks]);
+  }, [settings.notifications, notificationPermission, upcomingTasks, settings.soundEffects]);
 
   const scheduleReminderNotification = () => {
     if (settings.notifications && settings.dailyReminderTime && notificationPermission === "granted") {
@@ -168,9 +167,10 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
 
   const triggerTaskNotification = (task: any) => {
     if (Notification.permission === "granted" && settings.notifications) {
-      const notification = new Notification("Task Reminder", {
+      new Notification("Task Reminder", {
         body: `It's time for: ${task.title}`,
-        icon: "/favicon.ico"
+        icon: "/favicon.ico",
+        tag: task.id
       });
       
       if (settings.soundEffects) {
