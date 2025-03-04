@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import Tile from "@/components/ui/Tile";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { useLanguage } from "@/contexts/LanguageContext"; 
 import { UserSettings } from "@/hooks/useUserSettings";
 
 interface NotificationSettingsProps {
@@ -62,3 +62,4 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
 };
 
 export default NotificationSettings;
+
