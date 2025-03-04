@@ -1,33 +1,19 @@
 
 import { Button } from "@/components/ui/button";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCcw, Clock, Bell } from "lucide-react";
+import { Bell } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
 interface NotificationPermissionStatusProps {
   permission: NotificationPermission | null;
   onRequestPermission: () => void;
   onTestNotification: () => void;
-  onManuallyCheckOverdueTasks?: () => void;
 }
 
 const NotificationPermissionStatus = ({ 
   permission, 
   onRequestPermission,
-  onTestNotification,
-  onManuallyCheckOverdueTasks
+  onTestNotification
 }: NotificationPermissionStatusProps) => {
-  const queryClient = useQueryClient();
-  
-  const handleRefreshTaskNotifications = () => {
-    console.log("Manually refreshing task notifications");
-    queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
-    toast({
-      title: "Refreshing task notifications",
-      description: "Task notifications have been refreshed",
-    });
-  };
-  
   return (
     <>
       <div className="pt-2 pb-1 border-t border-gray-200 dark:border-gray-800">
@@ -54,37 +40,13 @@ const NotificationPermissionStatus = ({
         </Button>
         
         {permission === "granted" && (
-          <>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={onTestNotification}
-            >
-              Send Test Notification
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleRefreshTaskNotifications}
-              className="flex items-center gap-1"
-            >
-              <RefreshCcw className="h-3 w-3" />
-              Refresh Tasks
-            </Button>
-            
-            {onManuallyCheckOverdueTasks && (
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={onManuallyCheckOverdueTasks}
-                className="flex items-center gap-1"
-              >
-                <Clock className="h-3 w-3" />
-                Check Overdue Tasks
-              </Button>
-            )}
-          </>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onTestNotification}
+          >
+            Send Test Notification
+          </Button>
         )}
       </div>
     </>

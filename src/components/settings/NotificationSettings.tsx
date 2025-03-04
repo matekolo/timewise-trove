@@ -22,8 +22,7 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
     notificationPermission,
     handleNotificationChange,
     requestNotificationPermission,
-    triggerTestNotification,
-    manuallyCheckOverdueTasks
+    triggerTestNotification
   } = useNotifications(settings, updateSetting);
 
   const handleSoundEffectChange = (checked: boolean) => {
@@ -73,7 +72,6 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
           permission={notificationPermission}
           onRequestPermission={requestNotificationPermission}
           onTestNotification={triggerTestNotification}
-          onManuallyCheckOverdueTasks={manuallyCheckOverdueTasks}
         />
       </div>
     </Tile>
