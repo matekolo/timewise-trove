@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Plus, X, MoreHorizontal, Trash2, Edit, ThumbsUp, ThumbsDown, Check, Calendar } from "lucide-react";
@@ -13,7 +12,7 @@ import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { format, subDays, startOfDay, parseISO, isAfter } from "date-fns";
+import { format, subDays, startOfDay, parseISO } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Habit {
@@ -51,7 +50,6 @@ const HabitTracker = () => {
       throw error;
     }
     
-    // Ensure history is parsed as a Record<string, boolean>
     return (data || []).map(habit => ({
       ...habit,
       type: habit.type || "good",
@@ -203,37 +201,13 @@ const HabitTracker = () => {
   
   const weekDates = getCurrentWeekDates();
   
-  const toggleDay = (habit: Habit, dayIndex: number) => {
-    const formattedDate = format(weekDates[dayIndex], 'yyyy-MM-dd');
-    const newHistory = { ...(habit.history || {}) };
-    
-    // Toggle the value for this date
-    newHistory[formattedDate] = !newHistory[formattedDate];
-    
-    // Calculate streak
-    let streak = calculateStreak(newHistory);
-    
-    // Update the days array for compatibility with the existing UI
-    const newDays = [...habit.days];
-    newDays[dayIndex] = !newDays[dayIndex];
-    
-    updateHabitMutation.mutate({
-      id: habit.id,
-      days: newDays,
-      history: newHistory,
-      streak,
-    });
-  };
-  
   const toggleDateInHistory = (habit: Habit, date: Date) => {
     const formattedDate = format(date, 'yyyy-MM-dd');
     const newHistory = { ...(habit.history || {}) };
     
-    // Toggle the value for this date
     newHistory[formattedDate] = !newHistory[formattedDate];
     
-    // Calculate streak
-    let streak = calculateStreak(newHistory);
+    let streak = calculateStreak(newHistory, habit.type);
     
     updateHabitMutation.mutate({
       id: habit.id,
@@ -242,31 +216,27 @@ const HabitTracker = () => {
     });
   };
   
-  const calculateStreak = (history: Record<string, boolean>) => {
+  const calculateStreak = (history: Record<string, boolean>, habitType: "good" | "bad" = "good") => {
     if (!history) return 0;
     
-    // Convert the history object to an array of date entries sorted in descending order
     const sortedDates = Object.entries(history)
-      .filter(([_, completed]) => completed) // Only consider completed days
+      .filter(([_, completed]) => completed)
       .map(([date]) => date)
       .sort((a, b) => (parseISO(b) > parseISO(a) ? 1 : -1));
     
     if (sortedDates.length === 0) return 0;
     
-    let streak = 1; // Start with one for the most recent date
+    let streak = 1;
     let currentDate = parseISO(sortedDates[0]);
     
-    // Go through each date to count consecutive days
     for (let i = 1; i < sortedDates.length; i++) {
       const prevDate = subDays(currentDate, 1);
       const checkDate = parseISO(sortedDates[i]);
       
-      // If this date is exactly one day before the current date, increment streak
       if (format(prevDate, 'yyyy-MM-dd') === format(checkDate, 'yyyy-MM-dd')) {
         streak++;
         currentDate = checkDate;
       } else {
-        // Break the streak if we find a gap
         break;
       }
     }
@@ -299,7 +269,6 @@ const HabitTracker = () => {
     const dates = [];
     const today = startOfDay(new Date());
     
-    // Add the past 30 days and the next 7 days
     for (let i = 30; i >= -7; i--) {
       dates.push(subDays(today, i));
     }
@@ -498,7 +467,7 @@ const HabitTracker = () => {
                     <h3 className="text-lg font-medium flex items-center gap-2">
                       {habit.name}
                       <Badge variant={habit.type === "bad" ? "destructive" : "default"} className="ml-2">
-                        {habit.type === "bad" ? "Break Habit" : "Build Habit"}
+                        {habit.type === "bad" ? "Avoid Habit" : "Build Habit"}
                       </Badge>
                     </h3>
                     <p className="text-sm text-muted-foreground">{habit.goal}</p>
@@ -506,8 +475,12 @@ const HabitTracker = () => {
                 </div>
                 
                 <div className="flex items-center gap-4">
-                  <div className="bg-primary/10 text-primary font-medium text-sm px-3 py-1 rounded-full">
-                    {habit.streak} day streak
+                  <div className={`text-sm px-3 py-1 rounded-full ${
+                    habit.type === "bad" 
+                      ? "bg-red-100 text-red-700" 
+                      : "bg-primary/10 text-primary"
+                  } font-medium`}>
+                    {habit.streak} day {habit.type === "bad" ? "avoiding" : "streak"}
                   </div>
                   
                   <DropdownMenu>
@@ -555,6 +528,7 @@ const HabitTracker = () => {
                             : "border-gray-200 text-gray-400 hover:border-primary/50"
                         }`}
                         onClick={() => toggleDateInHistory(habit, date)}
+                        aria-label={habit.type === "bad" ? "Mark as avoided" : "Mark as completed"}
                       >
                         {isDateCompleted(habit, date) ? (
                           habit.type === "bad" ? (
@@ -566,6 +540,11 @@ const HabitTracker = () => {
                           <Plus className="h-5 w-5" />
                         )}
                       </button>
+                      {isDateCompleted(habit, date) && (
+                        <span className="text-xs mt-1 font-medium text-center">
+                          {habit.type === "bad" ? "Avoided" : "Completed"}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -599,8 +578,8 @@ const HabitTracker = () => {
                             <p className="text-sm mt-1">
                               {isDateCompleted(habit, date) 
                                 ? habit.type === "good" 
-                                  ? "Completed" 
-                                  : "Avoided" 
+                                  ? "Completed ✓" 
+                                  : "Avoided ✕" 
                                 : "Not tracked"}
                             </p>
                           </div>

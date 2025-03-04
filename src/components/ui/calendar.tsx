@@ -119,8 +119,10 @@ function Calendar({
         IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
         Day: ({ date, displayMonth, ...dayProps }) => {
           const dateObj = new Date(date);
-          // Fix: Ensure dayProps has the correct type and provide a fallback empty object
-          const modifiers = (dayProps as any).modifiers || {};
+          // Fix: Properly type the dayProps and explicitly cast modifiers
+          const modifiers = dayProps && typeof dayProps === 'object' ? 
+            ((dayProps as any).modifiers || {}) as Record<string, boolean> : 
+            {};
           return renderDay(dateObj, modifiers);
         }
       }}
