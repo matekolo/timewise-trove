@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format, subDays, subWeeks, subMonths, parseISO, isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { format, isAfter, isBefore, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval } from "date-fns";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,33 +44,39 @@ const Reports = () => {
   const navigate = useNavigate();
   
   const getDateRange = () => {
-    const today = new Date();
+    const selectedDate = date || new Date();
     
     switch (timeRange) {
       case "day":
-        return { start: today, end: today };
+        return { 
+          start: startOfDay(selectedDate), 
+          end: endOfDay(selectedDate) 
+        };
       case "week":
         return { 
-          start: startOfWeek(today), 
-          end: endOfWeek(today) 
+          start: startOfWeek(selectedDate, { weekStartsOn: 1 }), 
+          end: endOfWeek(selectedDate, { weekStartsOn: 1 }) 
         };
       case "month":
         return { 
-          start: startOfMonth(today), 
-          end: endOfMonth(today) 
+          start: startOfMonth(selectedDate), 
+          end: endOfMonth(selectedDate) 
         };
       case "year":
         return { 
-          start: subMonths(today, 12), 
-          end: today 
+          start: subMonths(selectedDate, 12), 
+          end: selectedDate 
         };
       default:
-        return { start: subDays(today, 7), end: today };
+        return { 
+          start: startOfWeek(selectedDate, { weekStartsOn: 1 }), 
+          end: endOfWeek(selectedDate, { weekStartsOn: 1 }) 
+        };
     }
   };
   
-  const { data: tasks = [] } = useQuery({
-    queryKey: ["tasks"],
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery({
+    queryKey: ["tasks", "all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tasks")
@@ -88,8 +95,8 @@ const Reports = () => {
     },
   });
   
-  const { data: events = [] } = useQuery({
-    queryKey: ["events"],
+  const { data: events = [], isLoading: eventsLoading } = useQuery({
+    queryKey: ["events", "all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
@@ -108,8 +115,8 @@ const Reports = () => {
     },
   });
   
-  const { data: habits = [] } = useQuery({
-    queryKey: ["habits"],
+  const { data: habits = [], isLoading: habitsLoading } = useQuery({
+    queryKey: ["habits", "all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("habits")
@@ -144,6 +151,7 @@ const Reports = () => {
     }));
   
   const generateProductivityData = () => {
+    const { start, end } = getDateRange();
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     
     return days.map(day => {
@@ -155,7 +163,7 @@ const Reports = () => {
       if (dayTasks.length === 0) return { name: day, value: 0 };
       
       const completedCount = dayTasks.filter(task => task.completed).length;
-      const percentage = Math.round((completedCount / dayTasks.length) * 100);
+      const percentage = dayTasks.length > 0 ? Math.round((completedCount / dayTasks.length) * 100) : 0;
       
       return {
         name: day,
@@ -199,14 +207,55 @@ const Reports = () => {
   const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"];
   
   const downloadReport = () => {
+    // Create a report object with all the data
+    const reportData = {
+      date: date ? format(date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
+      timeRange,
+      productivityScore,
+      completedTasks: completedTasksCount,
+      totalTasks: totalTasksCount,
+      categories: categoryData,
+      topHabits: topHabits.map(h => ({
+        name: h.name,
+        streak: h.streak,
+        type: h.type
+      }))
+    };
+    
+    // Convert to JSON string
+    const jsonString = JSON.stringify(reportData, null, 2);
+    
+    // Create a blob and download link
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `productivity-report-${format(new Date(), 'yyyy-MM-dd')}.json`;
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
     toast({
       title: "Report downloaded",
-      description: "Your productivity report has been downloaded.",
+      description: "Your productivity report has been downloaded as JSON.",
     });
   };
 
   const getHabitColor = (entry: any) => {
     return entry.type === "bad" ? "#EF4444" : "#10B981";
+  };
+
+  // Handle date change
+  const handleDateChange = (newDate: Date | undefined) => {
+    setDate(newDate);
+  };
+
+  // Handle time range change
+  const handleTimeRangeChange = (newRange: string) => {
+    setTimeRange(newRange);
   };
 
   return (
@@ -233,13 +282,13 @@ const Reports = () => {
               <CalendarUI
                 mode="single"
                 selected={date}
-                onSelect={setDate}
+                onSelect={handleDateChange}
                 initialFocus
               />
             </PopoverContent>
           </Popover>
           
-          <Select value={timeRange} onValueChange={setTimeRange}>
+          <Select value={timeRange} onValueChange={handleTimeRangeChange}>
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="Select range" />
             </SelectTrigger>
@@ -374,16 +423,16 @@ const Reports = () => {
         <Tile title="Summary" className="md:col-span-2" delay={3}>
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-6">
-              <div className="p-4 bg-green-50 rounded-md text-center">
-                <p className="text-green-600 font-medium text-sm">Productivity Score</p>
-                <h3 className="text-2xl font-bold text-green-700 mt-1">{productivityScore}%</h3>
-                <p className="text-xs text-green-600 mt-1">Based on {totalTasksCount} tasks</p>
+              <div className="p-4 bg-green-50 dark:bg-green-950 rounded-md text-center">
+                <p className="text-green-600 dark:text-green-400 font-medium text-sm">Productivity Score</p>
+                <h3 className="text-2xl font-bold text-green-700 dark:text-green-300 mt-1">{productivityScore}%</h3>
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1">Based on {totalTasksCount} tasks</p>
               </div>
               
-              <div className="p-4 bg-blue-50 rounded-md text-center">
-                <p className="text-blue-600 font-medium text-sm">Completed Tasks</p>
-                <h3 className="text-2xl font-bold text-blue-700 mt-1">{completedTasksCount}</h3>
-                <p className="text-xs text-blue-600 mt-1">
+              <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-md text-center">
+                <p className="text-blue-600 dark:text-blue-400 font-medium text-sm">Completed Tasks</p>
+                <h3 className="text-2xl font-bold text-blue-700 dark:text-blue-300 mt-1">{completedTasksCount}</h3>
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                   {totalTasksCount > 0 
                     ? `${Math.round((completedTasksCount / totalTasksCount) * 100)}% completion rate` 
                     : 'No tasks yet'}
