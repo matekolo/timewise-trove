@@ -22,6 +22,7 @@ interface Task {
   priority: string;
   created_at: string;
   category?: string;
+  date?: string; // Optional date field that might be present
 }
 
 interface Event {
@@ -140,12 +141,30 @@ const Reports = () => {
     },
   });
   
+  // Extract actual task date to use for filtering
+  const getTaskDate = (task: Task): Date => {
+    // First try to use the date field if it exists (this should be the displayed date)
+    if (task.date) {
+      try {
+        // The date field might be in various formats
+        return parseISO(task.date);
+      } catch (e) {
+        console.error("Failed to parse task.date:", task.date, e);
+      }
+    }
+    
+    // Fallback to created_at
+    return parseISO(task.created_at);
+  };
+  
   // Filter tasks based on date range
   const filteredTasks = tasks.filter(task => {
     const { start, end } = getDateRange();
-    const taskDate = parseISO(task.created_at);
+    const taskDate = getTaskDate(task);
+    
     const isInRange = isWithinInterval(taskDate, { start, end });
-    console.log(`Filtering task "${task.title}" (${format(taskDate, "yyyy-MM-dd HH:mm")}): ${isInRange ? "IN RANGE" : "OUT OF RANGE"} (${format(start, "yyyy-MM-dd")} to ${format(end, "yyyy-MM-dd")})`);
+    console.log(`Filtering task "${task.title}" (${format(taskDate, "yyyy-MM-dd")}): ${isInRange ? "IN RANGE" : "OUT OF RANGE"} (${format(start, "yyyy-MM-dd")} to ${format(end, "yyyy-MM-dd")})`);
+    
     return isInRange;
   });
   
@@ -173,30 +192,27 @@ const Reports = () => {
     console.log("Week starting on:", format(weekStart, "yyyy-MM-dd"));
     console.log("Total tasks in database:", tasks.length);
     
-    // Debug all tasks
-    console.log("\nAll tasks in database:");
+    // Debug all tasks with their actual dates
+    console.log("\nAll tasks in database with their effective dates:");
     tasks.forEach(task => {
-      console.log(`Task: "${task.title}" | Created: ${task.created_at} | Completed: ${task.completed}`);
+      const taskDate = getTaskDate(task);
+      console.log(`Task: "${task.title}" | Created: ${task.created_at} | Display date: ${task.date || 'N/A'} | Effective date: ${format(taskDate, "yyyy-MM-dd")} | Completed: ${task.completed}`);
     });
     
     // Generate data for each day of the week
     for (let i = 0; i < 7; i++) {
       const dayDate = addDays(weekStart, i);
-      const dayStart = startOfDay(dayDate);
-      const dayEnd = endOfDay(dayDate);
       const dayName = days[i];
       
       console.log(`\nProcessing ${dayName}, ${format(dayDate, "yyyy-MM-dd")}`);
-      console.log(`  Range: ${format(dayStart, "yyyy-MM-dd HH:mm:ss")} to ${format(dayEnd, "yyyy-MM-dd HH:mm:ss")}`);
       
-      // Get tasks for this day using direct date comparison
+      // Get tasks for this day using date comparison
       const dayTasks = tasks.filter(task => {
-        const taskDate = parseISO(task.created_at);
-        // Use exact day comparison 
+        const taskDate = getTaskDate(task);
         const taskInDay = isSameDay(taskDate, dayDate);
         
         if (taskInDay) {
-          console.log(`  ✓ Task "${task.title}" matches for ${dayName} (${format(taskDate, "yyyy-MM-dd HH:mm")})`);
+          console.log(`  ✓ Task "${task.title}" matches for ${dayName} (${format(taskDate, "yyyy-MM-dd")})`);
         }
         
         return taskInDay;
