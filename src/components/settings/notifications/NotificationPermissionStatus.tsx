@@ -1,19 +1,21 @@
 
 import { Button } from "@/components/ui/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCcw } from "lucide-react";
+import { RefreshCcw, Clock, Bell } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
 interface NotificationPermissionStatusProps {
   permission: NotificationPermission | null;
   onRequestPermission: () => void;
   onTestNotification: () => void;
+  onManuallyCheckOverdueTasks?: () => void;
 }
 
 const NotificationPermissionStatus = ({ 
   permission, 
   onRequestPermission,
-  onTestNotification
+  onTestNotification,
+  onManuallyCheckOverdueTasks
 }: NotificationPermissionStatusProps) => {
   const queryClient = useQueryClient();
   
@@ -70,6 +72,18 @@ const NotificationPermissionStatus = ({
               <RefreshCcw className="h-3 w-3" />
               Refresh Task Notifications
             </Button>
+            
+            {onManuallyCheckOverdueTasks && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onManuallyCheckOverdueTasks}
+                className="flex items-center gap-1"
+              >
+                <Clock className="h-3 w-3" />
+                Check Overdue Tasks
+              </Button>
+            )}
           </>
         )}
       </div>
