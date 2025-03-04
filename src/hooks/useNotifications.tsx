@@ -1,20 +1,26 @@
 
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { UserSettings } from "@/hooks/useUserSettings";
 
 export const useNotifications = (settings: UserSettings, updateSetting: (key: keyof UserSettings, value: any) => void) => {
+  const queryClient = useQueryClient();
   const [notificationSupported, setNotificationSupported] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const [timeoutId, setTimeoutId] = useState<number | null>(null);
   const [taskNotificationTimeoutsIds, setTaskNotificationTimeoutsIds] = useState<Record<string, number>>({});
 
+  // Fetch upcoming tasks for notifications
   const { data: upcomingTasks = [] } = useQuery({
     queryKey: ["upcoming-tasks"],
     queryFn: async () => {
-      if (!settings.notifications || notificationPermission !== "granted") return [];
+      console.log("Fetching upcoming tasks for notifications");
+      if (!settings.notifications || notificationPermission !== "granted") {
+        console.log("Notifications disabled or permission not granted, skipping task fetch");
+        return [];
+      }
       
       const now = new Date();
       const tomorrow = new Date();
@@ -31,12 +37,15 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
         return [];
       }
       
+      console.log(`Fetched ${data?.length || 0} tasks for notifications`);
       return data || [];
     },
     enabled: settings.notifications && notificationPermission === "granted",
     refetchInterval: 60000, // Refetch every minute
+    staleTime: 30000, // Consider data stale after 30 seconds
   });
 
+  // Initialize notification system
   useEffect(() => {
     if (!("Notification" in window)) {
       setNotificationSupported(false);
@@ -74,6 +83,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     };
   }, [settings.notifications, updateSetting]);
 
+  // Schedule daily reminder
   useEffect(() => {
     if (settings.notifications && settings.dailyReminderTime && notificationPermission === "granted") {
       scheduleReminderNotification();
@@ -86,7 +96,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     };
   }, [settings.notifications, settings.dailyReminderTime, notificationPermission]);
 
-  // This is the critical effect for task notifications
+  // Schedule task notifications
   useEffect(() => {
     console.log("Task notification effect triggered. Tasks count:", upcomingTasks.length);
     
@@ -96,6 +106,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     });
     
     if (!settings.notifications || notificationPermission !== "granted" || upcomingTasks.length === 0) {
+      console.log("Conditions not met for scheduling task notifications, skipping");
       return;
     }
     
@@ -105,13 +116,17 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     console.log("Current time:", new Date().toISOString());
     
     upcomingTasks.forEach(task => {
-      if (!task.time) return;
+      if (!task.time) {
+        console.log(`Task ${task.id} has no time set, skipping`);
+        return;
+      }
       
+      // Parse the task time correctly
       const taskTime = new Date(task.time);
       const now = new Date();
       const delay = taskTime.getTime() - now.getTime();
       
-      console.log(`Task: ${task.title}, Time: ${taskTime.toISOString()}, Delay: ${delay}ms`);
+      console.log(`Task: ${task.title}, Time: ${taskTime.toLocaleString()}, Delay: ${delay}ms`);
       
       // Only schedule if task is in the future but within 24 hours
       if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
@@ -124,6 +139,17 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
         }, delay) as unknown as number;
         
         newTimeoutIds[task.id] = id;
+      } else if (delay <= 0) {
+        // If task time has passed but is within last 2 minutes, notify immediately
+        const twoMinutesAgo = now.getTime() - 2 * 60 * 1000;
+        if (taskTime.getTime() > twoMinutesAgo) {
+          console.log(`Task "${task.title}" is due now or very recently, triggering immediate notification`);
+          triggerTaskNotification(task);
+        } else {
+          console.log(`Task "${task.title}" time has already passed, skipping notification`);
+        }
+      } else {
+        console.log(`Task "${task.title}" is more than 24 hours in the future, skipping for now`);
       }
     });
     
@@ -171,7 +197,9 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       
       if (settings.soundEffects) {
         const audio = new Audio("/notification-sound.mp3");
-        audio.play().catch(console.error);
+        audio.play().catch(error => {
+          console.error("Error playing notification sound:", error);
+        });
       }
       
       toast({
@@ -185,32 +213,43 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     console.log(`Triggering notification for task: ${task.title}`);
     
     if (Notification.permission === "granted" && settings.notifications) {
-      // Create browser notification
-      const notification = new Notification("Task Reminder", {
-        body: `It's time for: ${task.title}`,
-        icon: "/favicon.ico",
-        tag: task.id // Prevents stacking of same task notifications
-      });
-      
-      // Add onclick handler for the notification
-      notification.onclick = () => {
-        window.focus();
-        notification.close();
-      };
-      
-      // Play sound if enabled
-      if (settings.soundEffects) {
-        const audio = new Audio("/notification-sound.mp3");
-        audio.play().catch(error => {
-          console.error("Error playing notification sound:", error);
+      try {
+        // Create browser notification
+        const notification = new Notification("Task Reminder", {
+          body: `It's time for: ${task.title}`,
+          icon: "/favicon.ico",
+          tag: `task-${task.id}-${Date.now()}` // Unique tag to prevent stacking but allow multiple notifications for same task
+        });
+        
+        // Add onclick handler for the notification
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+        
+        // Play sound if enabled
+        if (settings.soundEffects) {
+          const audio = new Audio("/notification-sound.mp3");
+          audio.play().catch(error => {
+            console.error("Error playing notification sound:", error);
+          });
+        }
+        
+        // Also show in-app toast
+        toast({
+          title: "Task Reminder",
+          description: `It's time for: ${task.title}`,
+        });
+        
+        console.log("Task notification successfully triggered");
+      } catch (error) {
+        console.error("Error triggering task notification:", error);
+        toast({
+          title: "Notification Error",
+          description: "Could not trigger task notification",
+          variant: "destructive",
         });
       }
-      
-      // Also show in-app toast
-      toast({
-        title: "Task Reminder",
-        description: `It's time for: ${task.title}`,
-      });
     } else {
       console.warn("Cannot trigger notification - permission not granted or notifications disabled");
     }
@@ -228,6 +267,9 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
             title: "Notifications Enabled",
             description: "You will now receive notifications from the app.",
           });
+          
+          // Refresh task notifications immediately
+          queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
           
           if (settings.dailyReminderTime) {
             scheduleReminderNotification();
@@ -270,6 +312,9 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
             description: "You will now receive notifications from the app.",
           });
           
+          // Refresh task notifications immediately
+          queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
+          
           if (settings.dailyReminderTime) {
             scheduleReminderNotification();
           }
@@ -293,20 +338,31 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
 
   const triggerTestNotification = () => {
     if (Notification.permission === "granted" && settings.notifications) {
-      const notification = new Notification("Test Notification", {
-        body: "This is a test notification from Timewise",
-        icon: "/favicon.ico"
-      });
-      
-      if (settings.soundEffects) {
-        const audio = new Audio("/notification-sound.mp3");
-        audio.play().catch(console.error);
+      try {
+        const notification = new Notification("Test Notification", {
+          body: "This is a test notification from Timewise",
+          icon: "/favicon.ico"
+        });
+        
+        if (settings.soundEffects) {
+          const audio = new Audio("/notification-sound.mp3");
+          audio.play().catch(error => {
+            console.error("Error playing notification sound:", error);
+          });
+        }
+        
+        toast({
+          title: "Test Notification Sent",
+          description: "If you didn't see a notification, check your browser settings.",
+        });
+      } catch (error) {
+        console.error("Error sending test notification:", error);
+        toast({
+          title: "Notification Error",
+          description: "Could not send test notification: " + (error instanceof Error ? error.message : String(error)),
+          variant: "destructive",
+        });
       }
-      
-      toast({
-        title: "Test Notification Sent",
-        description: "If you didn't see a notification, check your browser settings.",
-      });
     } else {
       toast({
         title: "Notification Error",
