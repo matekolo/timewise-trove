@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -187,6 +188,9 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
         }, delay) as unknown as number;
         
         newTimeoutIds[task.id] = id;
+      } else if (delay > -60000) { // If the task is less than 1 minute overdue, notify anyway
+        console.log(`⚠️ Task "${task.title}" time is very recent (${Math.abs(minutesToGo)} minutes ago), triggering notification`);
+        triggerTaskNotification(task);
       } else {
         console.log(`⚠️ Task "${task.title}" time has already passed (${Math.abs(minutesToGo)} minutes ago), skipping notification`);
       }
@@ -388,6 +392,10 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     console.log("Manually checking for overdue tasks...");
     if (!settings.notifications || notificationPermission !== "granted" || !upcomingTasks.length) {
       console.log("Cannot check overdue tasks - notifications disabled or no tasks");
+      showSuccessToast(
+        "No tasks available", 
+        "No upcoming tasks found or notifications are disabled."
+      );
       return;
     }
     

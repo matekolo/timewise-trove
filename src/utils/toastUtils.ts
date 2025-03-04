@@ -12,14 +12,17 @@ export const showToast = (props: {
 }) => {
   // Ensure toast is triggered outside of any component rendering cycle
   // This is critical for global visibility across routes
+  console.log("showToast called with:", props.title);
+  
+  // Use a timeout to ensure this runs after the current render cycle
   setTimeout(() => {
-    console.log("Showing toast:", props.title);
+    console.log("Actually showing toast now:", props.title);
     hookToast({
       ...props,
       // Longer duration for better visibility
       duration: 10000,
     });
-  }, 0);
+  }, 10); // Small delay to ensure it escapes current render cycle
 };
 
 // Convenience methods for common toast types
