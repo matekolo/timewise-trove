@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -65,8 +66,8 @@ const Reports = () => {
         };
       case "year":
         return { 
-          start: subMonths(selectedDate, 12), 
-          end: selectedDate 
+          start: new Date(selectedDate.getFullYear(), 0, 1), 
+          end: new Date(selectedDate.getFullYear(), 11, 31, 23, 59, 59) 
         };
       default:
         return { 
@@ -150,13 +151,18 @@ const Reports = () => {
   };
   
   const filteredTasks = tasks.filter(task => {
-    const { start, end } = getDateRange();
-    const taskDate = getTaskDate(task);
-    
-    const isInRange = isWithinInterval(taskDate, { start, end });
-    console.log(`Filtering task "${task.title}" (${format(taskDate, "yyyy-MM-dd")}): ${isInRange ? "IN RANGE" : "OUT OF RANGE"} (${format(start, "yyyy-MM-dd")} to ${format(end, "yyyy-MM-dd")})`);
-    
-    return isInRange;
+    try {
+      const { start, end } = getDateRange();
+      const taskDate = getTaskDate(task);
+      
+      const isInRange = isWithinInterval(taskDate, { start, end });
+      console.log(`Filtering task "${task.title}" (${format(taskDate, "yyyy-MM-dd")}): ${isInRange ? "IN RANGE" : "OUT OF RANGE"} (${format(start, "yyyy-MM-dd")} to ${format(end, "yyyy-MM-dd")})`);
+      
+      return isInRange;
+    } catch (error) {
+      console.error("Error filtering task:", task, error);
+      return false;
+    }
   });
   
   const habitData = habits
@@ -169,41 +175,37 @@ const Reports = () => {
     }));
   
   const generateProductivityData = () => {
+    const { start: weekStart } = getDateRange();
+    let startDate = weekStart;
+    
+    // For day view, create a week centered on the selected day
+    if (timeRange === "day" && date) {
+      startDate = startOfWeek(date, { weekStartsOn: 1 });
+    }
+    
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const result = [];
     
-    const selectedDate = date || new Date();
-    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-    
     console.log("\n--- GENERATING PRODUCTIVITY DATA ---");
-    console.log("Selected date:", format(selectedDate, "yyyy-MM-dd"));
-    console.log("Week starting on:", format(weekStart, "yyyy-MM-dd"));
+    console.log("Selected date:", date ? format(date, "yyyy-MM-dd") : "None");
+    console.log("Time range:", timeRange);
+    console.log("Week starting on:", format(startDate, "yyyy-MM-dd"));
     console.log("Total tasks in database:", tasks.length);
     
-    console.log("\nAll tasks in database with their effective dates:");
-    tasks.forEach(task => {
-      const taskDate = getTaskDate(task);
-      console.log(`Task: "${task.title}" | Created: ${task.created_at} | Time field: ${task.time || 'N/A'} | Effective date: ${format(taskDate, "yyyy-MM-dd")} | Completed: ${task.completed}`);
-    });
-    
     for (let i = 0; i < 7; i++) {
-      const dayDate = addDays(weekStart, i);
+      const dayDate = addDays(startDate, i);
       const dayName = days[i];
       
       console.log(`\nProcessing ${dayName}, ${format(dayDate, "yyyy-MM-dd")}`);
       
       const dayTasks = tasks.filter(task => {
-        const taskDate = getTaskDate(task);
-        const taskDayOfWeek = taskDate.getDay();
-        const mondayBasedTaskDay = taskDayOfWeek === 0 ? 6 : taskDayOfWeek - 1;
-        
-        const taskInDay = isSameDay(taskDate, dayDate);
-        
-        if (taskInDay) {
-          console.log(`  ✓ Task "${task.title}" matches for ${dayName} (${format(taskDate, "yyyy-MM-dd")})`);
+        try {
+          const taskDate = getTaskDate(task);
+          return isSameDay(taskDate, dayDate);
+        } catch (error) {
+          console.error("Error processing task date:", task, error);
+          return false;
         }
-        
-        return taskInDay;
       });
       
       console.log(`  Total tasks for ${dayName}: ${dayTasks.length}`);
