@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays, parseISO, isSameDay } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays, parseISO, isSameDay, subDays } from "date-fns";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -191,8 +192,8 @@ const Reports = () => {
       // Get tasks for this day using direct date comparison
       const dayTasks = tasks.filter(task => {
         const taskDate = parseISO(task.created_at);
-        // Check if the task falls within this day's time range
-        const taskInDay = taskDate >= dayStart && taskDate <= dayEnd;
+        // Use exact day comparison 
+        const taskInDay = isSameDay(taskDate, dayDate);
         
         if (taskInDay) {
           console.log(`  ✓ Task "${task.title}" matches for ${dayName} (${format(taskDate, "yyyy-MM-dd HH:mm")})`);
