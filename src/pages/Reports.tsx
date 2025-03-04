@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format, isAfter, isBefore, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays } from "date-fns";
+import { format, isAfter, isBefore, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays, isSameDay } from "date-fns";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -75,7 +76,7 @@ const Reports = () => {
   };
   
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
-    queryKey: ["tasks", "all", date, timeRange],
+    queryKey: ["tasks", "all", date?.toISOString(), timeRange],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tasks")
@@ -156,39 +157,43 @@ const Reports = () => {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const result = [];
     
-    let currentDay = startOfWeek(start, { weekStartsOn: 1 });
+    let currentDay = startOfWeek(new Date(), { weekStartsOn: 1 });
+    if (date) {
+      currentDay = startOfWeek(date, { weekStartsOn: 1 });
+    }
     
+    console.log("Current day start:", format(currentDay, "yyyy-MM-dd"));
     console.log("Date range:", format(start, "yyyy-MM-dd"), "to", format(end, "yyyy-MM-dd"));
-    console.log("Filtered tasks:", filteredTasks.length);
+    console.log("Filtered tasks total:", filteredTasks.length);
+    console.log("All tasks:", tasks.map(t => `${t.title} (${t.created_at})`));
     
     for (let i = 0; i < 7; i++) {
       const dayName = days[i];
       const dayDate = addDays(currentDay, i);
-      const dayStart = startOfDay(dayDate);
-      const dayEnd = endOfDay(dayDate);
       
-      console.log("Checking day:", dayName, format(dayDate, "yyyy-MM-dd"));
+      console.log(`\nChecking day ${i+1}: ${dayName}, ${format(dayDate, "yyyy-MM-dd")}`);
       
-      const dayTasks = filteredTasks.filter(task => {
+      // Check all tasks for this specific day using isSameDay
+      const dayTasks = tasks.filter(task => {
         const taskDate = parseISO(task.created_at);
-        const isInDay = isWithinInterval(taskDate, { start: dayStart, end: dayEnd });
-        console.log(`- Task: ${task.title}, Date: ${format(taskDate, "yyyy-MM-dd")}, In day: ${isInDay}`);
-        return isInDay;
+        const isSameDayResult = isSameDay(taskDate, dayDate);
+        console.log(`  Task: "${task.title}", Created: ${format(taskDate, "yyyy-MM-dd")}, Match: ${isSameDayResult}`);
+        return isSameDayResult;
       });
       
-      console.log(`${dayName} has ${dayTasks.length} tasks`);
+      console.log(`  ${dayName} has ${dayTasks.length} tasks total`);
       
       if (dayTasks.length === 0) {
         result.push({ name: dayName, value: 0 });
       } else {
         const completedCount = dayTasks.filter(task => task.completed).length;
         const percentage = Math.round((completedCount / dayTasks.length) * 100);
-        console.log(`${dayName} completion: ${completedCount}/${dayTasks.length} = ${percentage}%`);
+        console.log(`  ${dayName} completion: ${completedCount}/${dayTasks.length} = ${percentage}%`);
         result.push({ name: dayName, value: percentage });
       }
     }
     
-    console.log("Productivity data:", result);
+    console.log("Final productivity data:", result);
     return result;
   };
   
