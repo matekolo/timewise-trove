@@ -51,6 +51,7 @@ const HabitTracker = () => {
       throw error;
     }
     
+    // Ensure history is parsed as a Record<string, boolean>
     return (data || []).map(habit => ({
       ...habit,
       type: habit.type || "good",
@@ -629,4 +630,3 @@ const HabitTracker = () => {
 };
 
 export default HabitTracker;
-

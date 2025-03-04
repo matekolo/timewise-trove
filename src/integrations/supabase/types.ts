@@ -50,6 +50,7 @@ export type Database = {
           created_at: string | null
           days: boolean[] | null
           goal: string | null
+          history: Json | null
           id: string
           name: string
           streak: number | null
@@ -61,6 +62,7 @@ export type Database = {
           created_at?: string | null
           days?: boolean[] | null
           goal?: string | null
+          history?: Json | null
           id?: string
           name: string
           streak?: number | null
@@ -72,6 +74,7 @@ export type Database = {
           created_at?: string | null
           days?: boolean[] | null
           goal?: string | null
+          history?: Json | null
           id?: string
           name?: string
           streak?: number | null
