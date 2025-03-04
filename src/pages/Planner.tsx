@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Plus, Filter, Check, Trash2, ArrowUp, ArrowDown, CalendarIcon, Tag, Clock } from "lucide-react";
 import Tile from "@/components/ui/Tile";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { toast as toastHook } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
@@ -21,6 +21,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
+import { useUserSettings } from "@/hooks/useUserSettings";
 
 interface Task {
   id: string;
@@ -59,6 +60,8 @@ const Planner = () => {
     completed: false,
     category: "general",
   });
+  const { settings } = useUserSettings();
+  const [taskNotificationTimeoutsIds, setTaskNotificationTimeoutsIds] = useState<Record<string, number>>({});
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks"],
@@ -69,7 +72,7 @@ const Planner = () => {
         .order("created_at", { ascending: true });
       
       if (error) {
-        toastHook({
+        toast({
           title: "Error fetching tasks",
           description: error.message,
           variant: "destructive",
@@ -81,6 +84,77 @@ const Planner = () => {
     },
   });
 
+  useEffect(() => {
+    if (settings.notifications && Notification.permission === "granted" && tasks.length > 0) {
+      console.log("Setting up task notifications for", tasks.length, "tasks");
+      
+      Object.values(taskNotificationTimeoutsIds).forEach(id => {
+        clearTimeout(id);
+      });
+      
+      const newTimeoutIds: Record<string, number> = {};
+      
+      tasks.forEach(task => {
+        if (task.time && !task.completed) {
+          try {
+            const taskTime = new Date(task.time);
+            const now = new Date();
+            const timeDiff = taskTime.getTime() - now.getTime();
+            
+            if (timeDiff > 0 && timeDiff < 24 * 60 * 60 * 1000) {
+              console.log(`Scheduling notification for task "${task.title}" in ${Math.round(timeDiff/1000/60)} minutes`);
+              
+              const id = window.setTimeout(() => {
+                triggerTaskNotification(task);
+              }, timeDiff);
+              
+              newTimeoutIds[task.id] = id;
+            }
+            else if (timeDiff > -15 * 60 * 1000 && timeDiff <= 0) {
+              console.log(`Task "${task.title}" is slightly overdue, triggering notification now`);
+              triggerTaskNotification(task);
+            }
+          } catch (err) {
+            console.error(`Error scheduling notification for task "${task.title}":`, err);
+          }
+        }
+      });
+      
+      setTaskNotificationTimeoutsIds(newTimeoutIds);
+    }
+    
+    return () => {
+      Object.values(taskNotificationTimeoutsIds).forEach(id => {
+        clearTimeout(id);
+      });
+    };
+  }, [tasks, settings.notifications]);
+
+  const triggerTaskNotification = (task: Task) => {
+    console.log("Triggering task notification for:", task.title);
+    if (Notification.permission === "granted" && settings.notifications) {
+      try {
+        const notification = new Notification("Task Reminder", {
+          body: `It's time for: ${task.title}`,
+          icon: "/favicon.ico"
+        });
+        
+        if (settings.soundEffects) {
+          const audio = new Audio("/notification-sound.mp3");
+          audio.play().catch(err => console.error("Error playing sound:", err));
+        }
+        
+        toast({
+          title: "Task Reminder",
+          description: `It's time for: ${task.title}`,
+          duration: 6000,
+        });
+      } catch (err) {
+        console.error("Error triggering task notification:", err);
+      }
+    }
+  };
+
   const addTaskMutation = useMutation({
     mutationFn: async (task: Omit<Task, "id">) => {
       const { data, error } = await supabase
@@ -90,7 +164,7 @@ const Planner = () => {
         .single();
       
       if (error) {
-        toastHook({
+        toast({
           title: "Error adding task",
           description: error.message,
           variant: "destructive",
@@ -104,7 +178,7 @@ const Planner = () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["achievement-tasks"] });
-      toastHook({
+      toast({
         title: "Task added",
         description: `${newTask.title} has been added to your planner.`,
       });
@@ -130,7 +204,7 @@ const Planner = () => {
         .single();
       
       if (error) {
-        toastHook({
+        toast({
           title: "Error updating task",
           description: error.message,
           variant: "destructive",
@@ -155,7 +229,7 @@ const Planner = () => {
         .eq("id", taskId);
       
       if (error) {
-        toastHook({
+        toast({
           title: "Error deleting task",
           description: error.message,
           variant: "destructive",
@@ -167,7 +241,7 @@ const Planner = () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["achievement-tasks"] });
-      toastHook({
+      toast({
         title: "Task deleted",
         description: "The task has been deleted from your planner.",
       });
@@ -176,7 +250,7 @@ const Planner = () => {
 
   const addTask = async () => {
     if (!newTask.title) {
-      toastHook({
+      toast({
         title: "Task title required",
         description: "Please add a title for your task",
         variant: "destructive",
@@ -187,7 +261,7 @@ const Planner = () => {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      toastHook({
+      toast({
         title: "Authentication error",
         description: "You must be logged in to add tasks",
         variant: "destructive",
@@ -220,6 +294,13 @@ const Planner = () => {
   };
 
   const handleDeleteTask = (taskId: string) => {
+    if (taskNotificationTimeoutsIds[taskId]) {
+      clearTimeout(taskNotificationTimeoutsIds[taskId]);
+      const newTimeoutIds = { ...taskNotificationTimeoutsIds };
+      delete newTimeoutIds[taskId];
+      setTaskNotificationTimeoutsIds(newTimeoutIds);
+    }
+    
     deleteTaskMutation.mutate(taskId);
   };
 

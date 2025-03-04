@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Settings as SettingsIcon } from "lucide-react";
@@ -46,6 +47,7 @@ const Settings = () => {
     toast({
       title: t("settingsSaved"),
       description: "Your preferences have been updated.",
+      duration: 5000,
     });
   };
 
