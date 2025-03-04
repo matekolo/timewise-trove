@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Plus, Filter, Check, Trash2, Tag, Clock, CalendarIcon } from "lucide-react";
@@ -340,7 +339,7 @@ const Planner = () => {
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="task-priority">Priority</Label>
                   <Select
@@ -399,12 +398,10 @@ const Planner = () => {
                       <Calendar
                         mode="single"
                         selected={date}
-                        onSelect={(selectedDate) => {
-                          setDate(selectedDate);
-                          // Don't close the popover automatically
-                        }}
+                        onSelect={setDate}
                         initialFocus
                         className="rounded-md border"
+                        preventPopoverClose={true}
                       />
                     </PopoverContent>
                   </Popover>

@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
   eventDates?: Date[];
   eventColors?: Record<string, string>;
+  preventPopoverClose?: boolean;
 };
 
 function Calendar({
@@ -17,6 +18,7 @@ function Calendar({
   showOutsideDays = true,
   eventDates = [],
   eventColors = {},
+  preventPopoverClose = false,
   ...props
 }: CalendarProps) {
   // Create a mapping of dates to determine which days have events
@@ -76,6 +78,34 @@ function Calendar({
     );
   };
 
+  // Modify the onSelect handler to prevent popover close if needed
+  const handleDaySelect = React.useCallback(
+    (day: Date | undefined, selectedDay: Date, activeModifiers: Record<string, boolean>) => {
+      // Call the original onSelect handler
+      if (props.onSelect) {
+        // When preventPopoverClose is true, we use a synthetic event with stopPropagation
+        if (preventPopoverClose) {
+          const syntheticEvent = {
+            target: { value: day },
+            preventDefault: () => {},
+            stopPropagation: () => {},
+          } as unknown as React.MouseEvent<HTMLButtonElement>;
+          
+          // Use setTimeout to ensure the event is processed after the React event cycle
+          setTimeout(() => {
+            props.onSelect?.(day, selectedDay, activeModifiers, syntheticEvent);
+          }, 0);
+          
+          return false; // Prevent default DayPicker behavior
+        } else {
+          return props.onSelect(day, selectedDay, activeModifiers);
+        }
+      }
+      return undefined;
+    },
+    [props.onSelect, preventPopoverClose]
+  );
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -118,6 +148,7 @@ function Calendar({
         IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
       }}
+      onSelect={handleDaySelect}
       {...props}
     />
   );
