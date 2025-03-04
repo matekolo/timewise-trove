@@ -7,6 +7,8 @@ import NotificationToggle from "@/components/settings/notifications/Notification
 import SoundEffectsToggle from "@/components/settings/notifications/SoundEffectsToggle";
 import DailyReminderTime from "@/components/settings/notifications/DailyReminderTime";
 import NotificationPermissionStatus from "@/components/settings/notifications/NotificationPermissionStatus";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { InfoCircled } from "@radix-ui/react-icons";
 
 interface NotificationSettingsProps {
   settings: UserSettings;
@@ -41,6 +43,15 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   return (
     <Tile title={t("notificationSettings")}>
       <div className="space-y-6">
+        {settings.notifications && notificationPermission === "granted" && (
+          <Alert variant="default" className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+            <InfoCircled className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <AlertDescription className="text-green-700 dark:text-green-300">
+              Notifications are enabled. You can test them using the "Send Test Notification" button below.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <NotificationToggle 
           checked={settings.notifications}
           onCheckedChange={handleNotificationChange}

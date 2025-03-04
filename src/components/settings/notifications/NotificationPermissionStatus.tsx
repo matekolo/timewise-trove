@@ -70,12 +70,12 @@ const NotificationPermissionStatus = ({
               className="flex items-center gap-1"
             >
               <RefreshCcw className="h-3 w-3" />
-              Refresh Task Notifications
+              Refresh Tasks
             </Button>
             
             {onManuallyCheckOverdueTasks && (
               <Button 
-                variant="outline" 
+                variant="secondary" 
                 size="sm" 
                 onClick={onManuallyCheckOverdueTasks}
                 className="flex items-center gap-1"

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
@@ -112,16 +112,67 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     };
   }, [settings.notifications, settings.dailyReminderTime, notificationPermission]);
 
-  // Schedule task notifications - improved implementation
-  useEffect(() => {
-    console.log("Task notification effect triggered. Tasks count:", upcomingTasks.length);
+  // Create a separate direct task notification function - this is important
+  const triggerTaskNotification = useCallback((task: any) => {
+    console.log(`Triggering notification for task: ${task.title}`);
     
-    // Clear existing timeouts
+    if (Notification.permission === "granted" && settings.notifications) {
+      try {
+        // Create browser notification with unique tag
+        const uniqueTag = `task-${task.id}-${Date.now()}`;
+        console.log(`Creating notification with tag: ${uniqueTag}`);
+        
+        const notification = new Notification("Task Reminder", {
+          body: `It's time for: ${task.title}`,
+          icon: "/favicon.ico",
+          tag: uniqueTag
+        });
+        
+        // Add onclick handler for the notification
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+        
+        // Play sound if enabled
+        if (settings.soundEffects) {
+          const audio = new Audio("/notification-sound.mp3");
+          audio.play().catch(error => {
+            console.error("Error playing notification sound:", error);
+          });
+        }
+        
+        // Also show in-app toast
+        toast({
+          title: "Task Reminder",
+          description: `It's time for: ${task.title}`,
+        });
+        
+        console.log("Task notification successfully triggered");
+      } catch (error) {
+        console.error("Error triggering task notification:", error);
+        toast({
+          title: "Notification Error",
+          description: "Could not trigger task notification",
+          variant: "destructive",
+        });
+      }
+    } else {
+      console.warn("Cannot trigger notification - permission not granted or notifications disabled");
+    }
+  }, [settings.notifications, settings.soundEffects]);
+
+  // COMPLETELY REWRITTEN: Task notification scheduling - using the same reliable approach as dailyReminder
+  useEffect(() => {
+    console.log("Task notification scheduler effect triggered. Tasks count:", upcomingTasks.length);
+    
+    // Clear all existing task notification timeouts
     Object.values(taskNotificationTimeoutsIds).forEach(id => {
       clearTimeout(id);
     });
+    setTaskNotificationTimeoutsIds({});
     
-    if (!settings.notifications || notificationPermission !== "granted" || upcomingTasks.length === 0) {
+    if (!settings.notifications || notificationPermission !== "granted" || !upcomingTasks.length) {
       console.log("Conditions not met for scheduling task notifications, skipping");
       return;
     }
@@ -129,8 +180,9 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     const newTimeoutIds: Record<string, number> = {};
     const now = new Date();
     
-    console.log(`Current time: ${now.toLocaleString()}`);
+    console.log(`Current time for task scheduling: ${now.toLocaleString()}`);
     
+    // IMPORTANT: Process each task and schedule its notification
     upcomingTasks.forEach(task => {
       if (!task.time) {
         console.log(`Task ${task.id} has no time set, skipping`);
@@ -144,42 +196,47 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       const delay = taskTime.getTime() - now.getTime();
       const minutesToGo = Math.round(delay / (60 * 1000));
       
-      console.log(`Task: "${task.title}", Time: ${taskTime.toLocaleString()}, Delay: ${delay}ms (${minutesToGo} minutes)`);
+      console.log(`Scheduling task: "${task.title}", Time: ${taskTime.toLocaleString()}, Delay: ${delay}ms (${minutesToGo} minutes)`);
       
-      // For immediate notification if task is due now (within last 2 minutes)
-      if (delay <= 0 && delay > -2 * 60 * 1000) {
-        console.log(`Task "${task.title}" is due now or very recently, triggering immediate notification`);
-        triggerTaskNotification(task);
+      // For immediate notification if task is due very soon (within 2 minutes)
+      if (delay >= -2 * 60 * 1000 && delay <= 2 * 60 * 1000) {
+        console.log(`Task "${task.title}" is due now or very soon, triggering immediate notification`);
+        // Use setTimeout with a tiny delay to avoid flooding with notifications
+        const id = window.setTimeout(() => {
+          triggerTaskNotification(task);
+        }, 100) as unknown as number;
+        newTimeoutIds[`immediate-${task.id}`] = id;
         return;
       }
       
-      // Only schedule if task is in the future but within 24 hours
-      if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
-        console.log(`Scheduling notification for task "${task.title}" in ${minutesToGo} minutes`);
+      // Only schedule future tasks (that are more than 2 minutes in the future)
+      if (delay > 2 * 60 * 1000 && delay < 24 * 60 * 60 * 1000) {
+        console.log(`Scheduling future notification for task "${task.title}" in ${minutesToGo} minutes`);
         
-        // Use a more reliable scheduling method
+        // Use direct setTimeout API (same approach used by daily reminders)
         const id = window.setTimeout(() => {
           console.log(`⏰ TIME TO EXECUTE notification for task "${task.title}"`);
           triggerTaskNotification(task);
         }, delay) as unknown as number;
         
         newTimeoutIds[task.id] = id;
-      } else if (delay <= 0 && delay <= -2 * 60 * 1000) {
-        console.log(`Task "${task.title}" time has already passed (${Math.abs(minutesToGo)} minutes ago), skipping notification`);
+      } else if (delay <= -2 * 60 * 1000) {
+        console.log(`Task "${task.title}" time has already passed by more than 2 minutes (${Math.abs(minutesToGo)} minutes ago), skipping notification`);
       } else {
         console.log(`Task "${task.title}" is more than 24 hours in the future (${minutesToGo} minutes), skipping for now`);
       }
     });
     
+    console.log(`Successfully scheduled ${Object.keys(newTimeoutIds).length} task notifications`);
     setTaskNotificationTimeoutsIds(newTimeoutIds);
-    console.log(`Successfully scheduled ${Object.keys(newTimeoutIds).length} notifications`);
     
     return () => {
+      // Clean up all timeouts when component unmounts or when dependencies change
       Object.values(newTimeoutIds).forEach(id => {
         clearTimeout(id);
       });
     };
-  }, [settings.notifications, notificationPermission, upcomingTasks, settings.soundEffects]);
+  }, [settings.notifications, notificationPermission, upcomingTasks, settings.soundEffects, triggerTaskNotification]);
 
   const scheduleReminderNotification = () => {
     if (settings.notifications && settings.dailyReminderTime && notificationPermission === "granted") {
@@ -240,55 +297,6 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       }
     } else {
       console.warn("Cannot trigger daily reminder - permission not granted or notifications disabled");
-    }
-  };
-
-  const triggerTaskNotification = (task: any) => {
-    console.log(`Triggering notification for task: ${task.title}`);
-    
-    if (Notification.permission === "granted" && settings.notifications) {
-      try {
-        // Create browser notification with unique tag
-        const uniqueTag = `task-${task.id}-${Date.now()}`;
-        console.log(`Creating notification with tag: ${uniqueTag}`);
-        
-        const notification = new Notification("Task Reminder", {
-          body: `It's time for: ${task.title}`,
-          icon: "/favicon.ico",
-          tag: uniqueTag
-        });
-        
-        // Add onclick handler for the notification
-        notification.onclick = () => {
-          window.focus();
-          notification.close();
-        };
-        
-        // Play sound if enabled
-        if (settings.soundEffects) {
-          const audio = new Audio("/notification-sound.mp3");
-          audio.play().catch(error => {
-            console.error("Error playing notification sound:", error);
-          });
-        }
-        
-        // Also show in-app toast
-        toast({
-          title: "Task Reminder",
-          description: `It's time for: ${task.title}`,
-        });
-        
-        console.log("Task notification successfully triggered");
-      } catch (error) {
-        console.error("Error triggering task notification:", error);
-        toast({
-          title: "Notification Error",
-          description: "Could not trigger task notification",
-          variant: "destructive",
-        });
-      }
-    } else {
-      console.warn("Cannot trigger notification - permission not granted or notifications disabled");
     }
   };
 
@@ -434,9 +442,9 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       const taskTime = new Date(task.time);
       const timeDiff = now.getTime() - taskTime.getTime();
       
-      // Notify about tasks that are due now or up to 5 minutes overdue
-      if (timeDiff >= 0 && timeDiff <= 5 * 60 * 1000) {
-        console.log(`Found overdue task "${task.title}" (${Math.round(timeDiff/1000/60)} minutes ago)`);
+      // Notify about any tasks due within the last 5 minutes or about to be due in 5 minutes
+      if (timeDiff >= -5 * 60 * 1000 && timeDiff <= 5 * 60 * 1000) {
+        console.log(`Found task due now or very soon: "${task.title}" (${Math.round(timeDiff/1000/60)} minutes ago)`);
         triggerTaskNotification(task);
         notifiedCount++;
       }
@@ -446,7 +454,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     
     if (notifiedCount === 0) {
       toast({
-        title: "No overdue tasks",
+        title: "No tasks due now",
         description: "There are no tasks due at this moment.",
       });
     }
@@ -461,4 +469,3 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     manuallyCheckOverdueTasks,
   };
 };
-
