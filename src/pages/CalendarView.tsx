@@ -28,7 +28,6 @@ interface Event {
   user_id: string;
 }
 
-// Define a type for the day modifiers that matches react-day-picker's expectations
 type CalendarModifiers = Record<string, Date[]>;
 
 const eventTypes = {
@@ -328,16 +327,18 @@ const CalendarView = () => {
                 <TabsContent value="date" className="space-y-4">
                   <div className="space-y-2">
                     <Label>Date</Label>
-                    <Calendar
-                      mode="single"
-                      selected={parseISO(newEvent.date)}
-                      onSelect={(selectedDate) => {
-                        if (selectedDate) {
-                          setNewEvent({ ...newEvent, date: selectedDate.toISOString() });
-                        }
-                      }}
-                      className="rounded-md border mx-auto"
-                    />
+                    <div className="border rounded-md p-3">
+                      <DayPicker
+                        mode="single"
+                        selected={parseISO(newEvent.date)}
+                        onSelect={(selectedDate) => {
+                          if (selectedDate) {
+                            setNewEvent({ ...newEvent, date: selectedDate.toISOString() });
+                          }
+                        }}
+                        className="mx-auto"
+                      />
+                    </div>
                   </div>
                   
                   <div className="space-y-2 pt-2">
