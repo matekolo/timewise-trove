@@ -26,13 +26,15 @@ function Calendar({
     eventDates.forEach((date, index) => {
       const dateString = date.toISOString().split('T')[0];
       const existingTypes = map.get(dateString) || [];
-      // If we have eventColors data, use that to determine the event type
-      const eventType = props.modifiers?.eventTypes?.[index] || 'default';
+      // Use a safe type check before accessing properties
+      const eventModifiers = props.modifiers as Record<string, any> || {};
+      const eventTypes = eventModifiers.eventTypes || [];
+      const eventType = eventTypes[index] || 'default';
       map.set(dateString, [...existingTypes, eventType]);
     });
     
     return map;
-  }, [eventDates, props.modifiers?.eventTypes]);
+  }, [eventDates, props.modifiers]);
 
   // Custom day rendering to add event indicators
   const renderDay = (day: Date, modifiers: Record<string, boolean>) => {

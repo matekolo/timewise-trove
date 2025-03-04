@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, PieChart, MapPin, Clock } from "lucide-react";
@@ -157,7 +156,6 @@ const CalendarView = () => {
     });
   };
 
-  // Format events for calendar
   const eventDates = useMemo(() => {
     return events.map(event => parseISO(event.date));
   }, [events]);
@@ -169,7 +167,12 @@ const CalendarView = () => {
     }, {} as Record<string, string>);
   }, []);
 
-  // Filter events for selected date
+  const calendarModifiers = useMemo(() => {
+    return {
+      eventTypes: events.map(event => event.type)
+    };
+  }, [events]);
+
   const selectedDateEvents = useMemo(() => {
     return events
       .filter(event => {
@@ -183,7 +186,6 @@ const CalendarView = () => {
       });
   }, [events, selectedDate]);
 
-  // Filter events for current month (for the month view summary)
   const currentMonthEvents = useMemo(() => {
     return events.filter(event => {
       const eventDate = parseISO(event.date);
@@ -191,7 +193,6 @@ const CalendarView = () => {
     });
   }, [events, date]);
 
-  // Get event counts by type for the current month
   const eventCountsByType = useMemo(() => {
     return currentMonthEvents.reduce((acc, event) => {
       acc[event.type] = (acc[event.type] || 0) + 1;
@@ -199,7 +200,6 @@ const CalendarView = () => {
     }, {} as Record<string, number>);
   }, [currentMonthEvents]);
 
-  // Get upcoming events for the current month
   const upcomingEvents = useMemo(() => {
     const now = new Date();
     return currentMonthEvents
@@ -387,9 +387,7 @@ const CalendarView = () => {
                   className="w-full"
                   eventDates={eventDates}
                   eventColors={eventColors}
-                  modifiers={{
-                    eventTypes: events.map(event => event.type)
-                  }}
+                  modifiers={calendarModifiers}
                 />
               </motion.div>
             </AnimatePresence>
