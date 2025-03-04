@@ -1,4 +1,5 @@
-import React, { ReactNode, useState, useEffect } from 'react';
+
+import React, { ReactNode, useState, useEffect, useContext } from 'react';
 import { LanguageContext, translateKey } from '@/hooks/useLanguageContext';
 
 export interface LanguageProviderProps {
@@ -6,39 +7,36 @@ export interface LanguageProviderProps {
 }
 
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
-  const [language, setLanguage] = useState<string>('english');
+  const [language, setLanguage] = useState<string>(() => {
+    try {
+      const savedSettings = localStorage.getItem('user-settings');
+      if (savedSettings) {
+        const { language } = JSON.parse(savedSettings);
+        return language || 'english';
+      }
+    } catch (error) {
+      console.error("Error loading language settings:", error);
+    }
+    return 'english';
+  });
 
   useEffect(() => {
-    // Load language from settings
-    const loadLanguage = () => {
+    // Save language to settings whenever it changes
+    const saveLanguage = (newLanguage: string) => {
       try {
         const savedSettings = localStorage.getItem('user-settings');
-        if (savedSettings) {
-          const { language: savedLanguage } = JSON.parse(savedSettings);
-          if (savedLanguage) {
-            setLanguage(savedLanguage);
-          }
-        }
+        const settings = savedSettings ? JSON.parse(savedSettings) : {};
+        settings.language = newLanguage;
+        localStorage.setItem('user-settings', JSON.stringify(settings));
+        // Dispatch event to notify other components
+        window.dispatchEvent(new Event('settings-updated'));
       } catch (error) {
-        console.error("Error loading language settings:", error);
+        console.error("Error saving language settings:", error);
       }
     };
 
-    loadLanguage();
-
-    // Listen for settings changes
-    const handleStorageChange = () => {
-      loadLanguage();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('settings-updated', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('settings-updated', handleStorageChange);
-    };
-  }, []);
+    saveLanguage(language);
+  }, [language]);
 
   // Translation function
   const t = (key: string): string => {
@@ -52,7 +50,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   );
 };
 
-// Export useLanguage hook as the main interface for components
+// Export useLanguage hook
 export const useLanguage = () => {
   const context = useContext(LanguageContext);
   if (context === undefined) {
@@ -60,6 +58,3 @@ export const useLanguage = () => {
   }
   return context;
 };
-
-// Import at the top of the file - add this back
-import { useContext } from 'react';

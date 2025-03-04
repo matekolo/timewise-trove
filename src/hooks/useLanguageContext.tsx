@@ -10,6 +10,30 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+// Translation helper function
+export const translateKey = (key: string, language: string): string => {
+  try {
+    // First check if it's a nested key (e.g. "settings.notifications")
+    const keyParts = key.split('.');
+    let translation: any = translations[language];
+    
+    for (const part of keyParts) {
+      if (translation && translation[part]) {
+        translation = translation[part];
+      } else {
+        // If no translation found, try English or return key
+        translation = translations.english[key] || key;
+        break;
+      }
+    }
+    
+    return typeof translation === 'string' ? translation : key;
+  } catch (error) {
+    console.error(`Translation error for key: ${key}`, error);
+    return key;
+  }
+};
+
 export const useLanguageContext = (): LanguageContextType => {
   const context = useContext(LanguageContext);
   if (context === undefined) {
@@ -19,18 +43,3 @@ export const useLanguageContext = (): LanguageContextType => {
 };
 
 export { LanguageContext, translations };
-
-// Translation helper function that can be used outside the context
-export const translateKey = (key: string, language: string): string => {
-  if (translations[language] && translations[language][key]) {
-    return translations[language][key];
-  }
-  
-  // Fallback to English if translation doesn't exist
-  if (translations.english[key]) {
-    return translations.english[key];
-  }
-  
-  // If key doesn't exist at all, return the key itself
-  return key;
-};

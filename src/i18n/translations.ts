@@ -1,4 +1,3 @@
-
 export interface Translations {
   [key: string]: {
     [key: string]: string;
@@ -40,7 +39,19 @@ export const translations: Translations = {
     toggle: "Toggle",
     pleaseWait: "Please wait...",
     rewardClaimed: "Reward claimed!",
-    // Add more translations as needed
+    notificationsEnabled: "Notifications enabled",
+    notificationsEnabledDesc: "You will now receive notifications",
+    notificationsBlocked: "Notifications blocked",
+    notificationsBlockedDesc: "Please enable notifications in your browser settings",
+    notificationError: "Error enabling notifications",
+    reminderSet: "Daily reminder set",
+    reminderSetDesc: "You will be reminded daily at {time}",
+    notificationSettings: "Notification Settings",
+    notificationsDesc: "Receive notifications for task reminders and achievements",
+    soundEffectsDesc: "Play sounds for completed tasks and achievements",
+    dailyReminderDesc: "Set a time for your daily task reminder",
+    enableNotificationsFirst: "Enable notifications to set a daily reminder",
+    error: "Error"
   },
   spanish: {
     dashboard: "Panel",
@@ -76,7 +87,19 @@ export const translations: Translations = {
     toggle: "Alternar",
     pleaseWait: "Por favor espere...",
     rewardClaimed: "¡Recompensa reclamada!",
-    // Add more translations as needed
+    notificationsEnabled: "Notificaciones activadas",
+    notificationsEnabledDesc: "Ahora recibirás notificaciones",
+    notificationsBlocked: "Notificaciones bloqueadas",
+    notificationsBlockedDesc: "Por favor, activa las notificaciones en la configuración del navegador",
+    notificationError: "Error al activar las notificaciones",
+    reminderSet: "Recordatorio diario establecido",
+    reminderSetDesc: "Se te recordará diariamente a las {time}",
+    notificationSettings: "Configuración de notificaciones",
+    notificationsDesc: "Recibir notificaciones para recordatorios de tareas y logros",
+    soundEffectsDesc: "Reproducir sonidos para tareas completadas y logros",
+    dailyReminderDesc: "Establece una hora para tu recordatorio diario",
+    enableNotificationsFirst: "Activa las notificaciones para establecer un recordatorio diario",
+    error: "Error"
   },
   french: {
     dashboard: "Tableau de bord",
@@ -112,7 +135,19 @@ export const translations: Translations = {
     toggle: "Basculer",
     pleaseWait: "Veuillez patienter...",
     rewardClaimed: "Récompense réclamée !",
-    // Add more translations as needed
+    notificationsEnabled: "Notifications activées",
+    notificationsEnabledDesc: "Vous recevrez désormais des notifications",
+    notificationsBlocked: "Notifications bloquées",
+    notificationsBlockedDesc: "Veuillez activer les notifications dans les paramètres de votre navigateur",
+    notificationError: "Erreur lors de l'activation des notifications",
+    reminderSet: "Rappel quotidien défini",
+    reminderSetDesc: "Vous serez rappelé quotidiennement à {time}",
+    notificationSettings: "Paramètres de notification",
+    notificationsDesc: "Recevoir des notifications pour les rappels de tâches et les réalisations",
+    soundEffectsDesc: "Jouer des sons pour les tâches terminées et les réalisations",
+    dailyReminderDesc: "Définir une heure pour votre rappel quotidien",
+    enableNotificationsFirst: "Activez les notifications pour définir un rappel quotidien",
+    error: "Erreur"
   },
   german: {
     dashboard: "Übersicht",
@@ -148,6 +183,18 @@ export const translations: Translations = {
     toggle: "Umschalten",
     pleaseWait: "Bitte warten...",
     rewardClaimed: "Belohnung beansprucht!",
-    // Add more translations as needed
+    notificationsEnabled: "Benachrichtigungen aktiviert",
+    notificationsEnabledDesc: "Sie erhalten jetzt Benachrichtigungen",
+    notificationsBlocked: "Benachrichtigungen blockiert",
+    notificationsBlockedDesc: "Bitte aktivieren Sie Benachrichtigungen in Ihren Browsereinstellungen",
+    notificationError: "Fehler beim Aktivieren der Benachrichtigungen",
+    reminderSet: "Tägliche Erinnerung eingestellt",
+    reminderSetDesc: "Sie werden täglich um {time} erinnert",
+    notificationSettings: "Benachrichtigungseinstellungen",
+    notificationsDesc: "Benachrichtigungen für Aufgabenerinnerungen und Erfolge erhalten",
+    soundEffectsDesc: "Sounds für erledigte Aufgaben und Erfolge abspielen",
+    dailyReminderDesc: "Legen Sie eine Zeit für Ihre tägliche Erinnerung fest",
+    enableNotificationsFirst: "Aktivieren Sie Benachrichtigungen, um eine tägliche Erinnerung einzustellen",
+    error: "Fehler"
   }
 };

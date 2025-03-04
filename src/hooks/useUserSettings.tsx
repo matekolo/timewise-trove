@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -37,7 +36,7 @@ export const useUserSettings = () => {
           setSettings(parsedSettings);
           applySettings(parsedSettings);
         } else {
-          // If no settings found, save defaults
+          // If no settings found, save and apply defaults
           localStorage.setItem('user-settings', JSON.stringify(defaultSettings));
           applySettings(defaultSettings);
         }
@@ -51,7 +50,10 @@ export const useUserSettings = () => {
       }
     };
 
-    // Listen for storage events (when settings are updated from another component)
+    // Load settings immediately
+    loadSettings();
+
+    // Listen for storage events (when settings are updated from another tab)
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'user-settings' && event.newValue) {
         const newSettings = JSON.parse(event.newValue);
@@ -60,22 +62,22 @@ export const useUserSettings = () => {
       }
     };
 
-    loadSettings();
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Also listen for custom storage event (used for in-app updates)
-    window.addEventListener('settings-updated', () => {
+    // Also listen for custom settings-updated event
+    const handleSettingsUpdate = () => {
       const savedSettings = localStorage.getItem('user-settings');
       if (savedSettings) {
-        const parsedSettings = JSON.parse(savedSettings);
-        setSettings(parsedSettings);
-        applySettings(parsedSettings);
+        const newSettings = JSON.parse(savedSettings);
+        setSettings(newSettings);
+        applySettings(newSettings);
       }
-    });
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('settings-updated', handleSettingsUpdate);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('settings-updated', loadSettings);
+      window.removeEventListener('settings-updated', handleSettingsUpdate);
     };
   }, []);
 
