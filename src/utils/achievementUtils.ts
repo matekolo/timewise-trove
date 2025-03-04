@@ -32,6 +32,12 @@ export const applyRewardEffect = (achievement: Achievement) => {
         avatar: 'productivity'
       }));
       break;
+    case "streak-master":
+      localStorage.setItem('user-settings', JSON.stringify({
+        ...currentSettings,
+        themeColor: 'gold'
+      }));
+      break;
     default:
       break;
   }

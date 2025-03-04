@@ -73,6 +73,12 @@
   }
 
   /* Theme colors */
+  /* Fixed the blue theme values to ensure it's properly displayed */
+  .theme-blue {
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 100%;
+  }
+  
   .theme-green {
     --primary: 142 70% 45%;
     --primary-foreground: 210 40% 98%;
@@ -91,6 +97,12 @@
   .theme-night {
     --primary: 240 70% 50%;
     --primary-foreground: 210 40% 98%;
+  }
+  
+  /* Added Gold theme for the streak master achievement */
+  .theme-gold {
+    --primary: 45 100% 50%;
+    --primary-foreground: 0 0% 10%;
   }
 
   * {

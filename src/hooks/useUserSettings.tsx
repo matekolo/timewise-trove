@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -95,7 +96,7 @@ export const useUserSettings = () => {
       // Remove any existing theme classes
       document.documentElement.classList.remove(
         'theme-blue', 'theme-green', 'theme-purple', 
-        'theme-morning', 'theme-night'
+        'theme-morning', 'theme-night', 'theme-gold'
       );
       
       // Add the new theme class
@@ -104,9 +105,52 @@ export const useUserSettings = () => {
     
     applyThemeColor(settingsToApply.themeColor);
     
+    // Schedule daily reminder if enabled
+    if (settingsToApply.notifications && settingsToApply.dailyReminderTime) {
+      scheduleReminderNotification(settingsToApply.dailyReminderTime);
+    }
+    
     // Trigger translation or other language-specific changes here
     // This will be handled in a separate component or function
     console.log("Settings applied:", settingsToApply);
+  };
+
+  // Schedule daily reminder notification
+  const scheduleReminderNotification = (reminderTime: string) => {
+    // Clear any existing scheduled notifications
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      // Get current time and reminder time
+      const [hours, minutes] = reminderTime.split(':').map(Number);
+      const now = new Date();
+      const reminderDate = new Date();
+      reminderDate.setHours(hours, minutes, 0, 0);
+      
+      // If reminder time is earlier than current time, schedule for next day
+      if (reminderDate <= now) {
+        reminderDate.setDate(reminderDate.getDate() + 1);
+      }
+      
+      // Calculate delay until reminder time
+      const delay = reminderDate.getTime() - now.getTime();
+      
+      // Schedule notification
+      setTimeout(() => {
+        if (Notification.permission === "granted") {
+          const notification = new Notification("Timewise Daily Reminder", {
+            body: "It's time to check your tasks and habits for today!",
+            icon: "/favicon.ico"
+          });
+          
+          // Play sound if enabled
+          if (settings.soundEffects) {
+            const audio = new Audio("/notification-sound.mp3");
+            audio.play().catch(console.error);
+          }
+        }
+        // Reschedule for next day
+        scheduleReminderNotification(reminderTime);
+      }, delay);
+    }
   };
 
   // Update a single setting

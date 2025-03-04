@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Plus, Filter, Check, Trash2, ArrowUp, ArrowDown, CalendarIcon, Tag } from "lucide-react";
@@ -23,7 +22,6 @@ interface Task {
   due_date?: string;
   completed: boolean;
   user_id: string;
-  category?: string;
   created_at?: string;
   updated_at?: string;
   time?: string;
@@ -40,7 +38,6 @@ const Planner = () => {
     priority: "medium",
     due_date: new Date().toISOString(),
     completed: false,
-    category: "work"
   });
 
   const { data: tasks = [], isLoading } = useQuery({
@@ -60,18 +57,17 @@ const Planner = () => {
         throw error;
       }
       
-      return (data as any[]).map(task => ({
-        ...task,
-        category: task.category || "work"
-      })) as Task[];
+      return data as Task[];
     },
   });
 
   const addTaskMutation = useMutation({
     mutationFn: async (task: Omit<Task, "id">) => {
+      const { category, ...taskWithoutCategory } = task as any;
+      
       const { data, error } = await supabase
         .from("tasks")
-        .insert(task)
+        .insert(taskWithoutCategory)
         .select()
         .single();
       
@@ -84,12 +80,7 @@ const Planner = () => {
         throw error;
       }
       
-      // Since category might not be in the database response, ensure it has a default
-      const completeData = data as any;
-      return {
-        ...completeData,
-        category: completeData.category || "work"
-      } as Task;
+      return data as Task;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -106,7 +97,6 @@ const Planner = () => {
         priority: "medium",
         due_date: new Date().toISOString(),
         completed: false,
-        category: "work"
       });
       setIsDialogOpen(false);
     },
@@ -130,12 +120,7 @@ const Planner = () => {
         throw error;
       }
       
-      // Since category might not be in the database response, ensure it has a default
-      const completeData = data as any;
-      return {
-        ...completeData,
-        category: completeData.category || "work"
-      } as Task;
+      return data as Task;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -228,9 +213,6 @@ const Planner = () => {
       if (filter === "completed") return task.completed;
       if (filter === "incomplete") return !task.completed;
       if (filter === "high") return task.priority === "high";
-      if (filter === "work") return task.category === "work";
-      if (filter === "personal") return task.category === "personal";
-      if (filter === "errands") return task.category === "errands";
       return true;
     })
     .sort((a, b) => {
@@ -311,27 +293,6 @@ const Planner = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="task-category">Category</Label>
-                  <Select
-                    value={newTask.category}
-                    onValueChange={(value: string) => 
-                      setNewTask({ ...newTask, category: value })
-                    }
-                  >
-                    <SelectTrigger id="task-category">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="work">Work</SelectItem>
-                      <SelectItem value="personal">Personal</SelectItem>
-                      <SelectItem value="errands">Errands</SelectItem>
-                      <SelectItem value="health">Health</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
               
               <div className="space-y-2">
@@ -401,27 +362,6 @@ const Planner = () => {
         >
           High Priority
         </Button>
-        <Button
-          variant={filter === "work" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilter("work")}
-        >
-          Work
-        </Button>
-        <Button
-          variant={filter === "personal" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilter("personal")}
-        >
-          Personal
-        </Button>
-        <Button
-          variant={filter === "errands" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilter("errands")}
-        >
-          Errands
-        </Button>
       </div>
       
       <Tile className="p-0">
@@ -461,11 +401,6 @@ const Planner = () => {
                       <div className={`text-xs px-1.5 py-0.5 rounded-full ${getPriorityColor(task.priority)}`}>
                         {task.priority}
                       </div>
-                      {task.category && (
-                        <div className="text-xs px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                          {task.category}
-                        </div>
-                      )}
                     </div>
                     
                     {task.description && (

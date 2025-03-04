@@ -35,7 +35,8 @@ const AppearanceSettings = ({
     { id: "green", name: "Forest Green", requiresAchievement: false },
     { id: "purple", name: "Royal Purple", requiresAchievement: false },
     { id: "morning", name: "Morning Sunrise", requiresAchievement: true, achievement: "early-bird" },
-    { id: "night", name: "Night Owl", requiresAchievement: true, achievement: "night-owl" }
+    { id: "night", name: "Night Owl", requiresAchievement: true, achievement: "night-owl" },
+    { id: "gold", name: "Gold Theme", requiresAchievement: true, achievement: "streak-master" }
   ];
   
   const availableAvatars = [
@@ -78,13 +79,21 @@ const AppearanceSettings = ({
             <Switch
               id="dark-mode"
               checked={settings.darkMode}
-              onCheckedChange={(checked) => updateSetting('darkMode', checked)}
+              onCheckedChange={(checked) => {
+                updateSetting('darkMode', checked);
+                // Immediately apply the dark mode change to ensure it persists across reloads
+                if (checked) {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              }}
             />
           </div>
           
           <div className="space-y-3">
             <Label>{t("themeColor")}</Label>
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
               {availableThemes.map(theme => (
                 <button
                   key={theme.id}
@@ -110,6 +119,7 @@ const AppearanceSettings = ({
                       theme.id === 'purple' ? 'bg-purple-500' :
                       theme.id === 'morning' ? 'bg-gradient-to-br from-orange-300 to-yellow-500' :
                       theme.id === 'night' ? 'bg-gradient-to-br from-indigo-900 to-purple-900' :
+                      theme.id === 'gold' ? 'bg-gradient-to-br from-yellow-300 to-amber-500' :
                       'bg-gray-500'
                     }`}
                   ></div>
