@@ -101,6 +101,25 @@
     @apply bg-background text-foreground font-sans;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+  
+  /* Dark mode specific overrides */
+  .dark .glass-panel {
+    @apply backdrop-blur-md bg-gray-900/80 border-gray-800/20;
+  }
+  
+  .dark .tile {
+    @apply border-gray-800;
+  }
+  
+  .dark input, 
+  .dark textarea,
+  .dark select {
+    @apply bg-gray-800/50 border-gray-700;
+  }
+  
+  .dark .hover\:bg-gray-100:hover {
+    @apply hover:bg-gray-800;
+  }
 }
 
 @layer components {
@@ -109,7 +128,8 @@
   }
   
   .tile {
-    @apply rounded-xl overflow-hidden transition-all duration-300 ease-out hover:shadow-md;
+    @apply rounded-xl overflow-hidden transition-all duration-300 ease-out hover:shadow-md 
+           bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800;
   }
   
   .tile-content {
@@ -117,7 +137,7 @@
   }
   
   .section-title {
-    @apply text-sm font-medium text-gray-500 uppercase tracking-wider mb-4;
+    @apply text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4;
   }
 }
 
@@ -161,6 +181,6 @@
   
   /* Glass morphism */
   .glass {
-    @apply bg-white/80 backdrop-blur-lg border border-white/20 shadow-sm;
+    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border border-white/20 dark:border-gray-800/20 shadow-sm;
   }
 }

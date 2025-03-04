@@ -10,29 +10,20 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/use-toast";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { UserAchievement } from "@/types/achievementTypes";
+import { useUserSettings, UserSettings } from "@/hooks/useUserSettings";
+import { useLanguage } from "@/contexts/LanguageContext";
+import UserAvatar from "@/components/ui/UserAvatar";
 
 const Settings = () => {
-  const queryClient = useQueryClient();
+  const { t } = useLanguage();
   
-  // Get initial settings from localStorage or default values
-  const getInitialSettings = () => {
-    const savedSettings = localStorage.getItem('user-settings');
-    return savedSettings ? JSON.parse(savedSettings) : {
-      darkMode: false,
-      notifications: true,
-      soundEffects: true,
-      language: "english",
-      themeColor: "blue",
-      avatar: "default",
-      dailyReminderTime: "08:00"
-    };
-  };
+  // Use our new hook for settings management
+  const { settings, updateSetting, saveUserProfile } = useUserSettings();
   
   const [activeTab, setActiveTab] = useState("appearance");
-  const [settings, setSettings] = useState(getInitialSettings());
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   
@@ -49,35 +40,6 @@ const Settings = () => {
     
     loadUserProfile();
   }, []);
-  
-  // Apply settings when they change
-  useEffect(() => {
-    // Apply dark mode
-    if (settings.darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    
-    // Apply theme color (add CSS variables or classes as needed)
-    const applyThemeColor = (color: string) => {
-      // Remove any existing theme classes
-      document.documentElement.classList.remove(
-        'theme-blue', 'theme-green', 'theme-purple', 
-        'theme-morning', 'theme-night'
-      );
-      
-      // Add the new theme class
-      document.documentElement.classList.add(`theme-${color}`);
-    };
-    
-    applyThemeColor(settings.themeColor);
-    
-    // Save settings to localStorage whenever they change
-    localStorage.setItem('user-settings', JSON.stringify(settings));
-    
-    console.log("Settings applied:", settings);
-  }, [settings]);
   
   const { data: userAchievements = [], isLoading: loadingAchievements } = useQuery({
     queryKey: ["user-achievements"],
@@ -109,7 +71,8 @@ const Settings = () => {
     { id: "early-bird", name: "Early Bird", reward: "Morning Theme" },
     { id: "night-owl", name: "Night Owl", reward: "Dark Theme" },
     { id: "zen-mind", name: "Zen Mind", reward: "Zen Avatar" },
-    { id: "focus-master", name: "Focus Master", reward: "Productivity Avatar" }
+    { id: "focus-master", name: "Focus Master", reward: "Productivity Avatar" },
+    { id: "streak-master", name: "Streak Master", reward: "Gold Theme" }
   ];
   
   // Map achievements to unlocked status
@@ -133,20 +96,13 @@ const Settings = () => {
   ];
   
   const updateUserProfileMutation = useMutation({
-    mutationFn: async ({ displayName }: { displayName: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-      
-      const { data, error } = await supabase.auth.updateUser({
-        data: { name: displayName }
-      });
-      
-      if (error) throw error;
-      return data;
+    mutationFn: async () => {
+      const result = await saveUserProfile(displayName);
+      return result;
     },
     onSuccess: () => {
       toast({
-        title: "Profile updated",
+        title: t("profileUpdated"),
         description: "Your profile has been updated successfully."
       });
     },
@@ -170,7 +126,7 @@ const Settings = () => {
     },
     onSuccess: () => {
       toast({
-        title: "Password reset email sent",
+        title: t("passwordResetSent"),
         description: "Check your email for the password reset link."
       });
     },
@@ -184,14 +140,11 @@ const Settings = () => {
   });
   
   const saveSettings = () => {
-    // Save settings to localStorage
-    localStorage.setItem('user-settings', JSON.stringify(settings));
-    
     // Update user profile if display name changed
-    updateUserProfileMutation.mutate({ displayName });
+    updateUserProfileMutation.mutate();
     
     toast({
-      title: "Settings saved",
+      title: t("settingsSaved"),
       description: "Your preferences have been updated.",
     });
   };
@@ -215,14 +168,6 @@ const Settings = () => {
       a.id === avatar.achievement && a.unlocked
     );
   };
-  
-  // Handle settings changes
-  const updateSetting = (key: string, value: any) => {
-    setSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
 
   return (
     <div className="space-y-6">
@@ -231,7 +176,7 @@ const Settings = () => {
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h1 className="text-3xl font-bold">Settings</h1>
+        <h1 className="text-3xl font-bold">{t("settings")}</h1>
         <p className="text-muted-foreground">Customize your experience</p>
       </motion.div>
       
@@ -239,15 +184,15 @@ const Settings = () => {
         <TabsList className="grid grid-cols-3 mb-6 w-full md:w-auto">
           <TabsTrigger value="appearance" className="flex gap-2 items-center">
             <PaletteIcon className="h-4 w-4" />
-            <span>Appearance</span>
+            <span>{t("appearance")}</span>
           </TabsTrigger>
           <TabsTrigger value="notifications" className="flex gap-2 items-center">
             <Bell className="h-4 w-4" />
-            <span>Notifications</span>
+            <span>{t("notifications")}</span>
           </TabsTrigger>
           <TabsTrigger value="account" className="flex gap-2 items-center">
             <User className="h-4 w-4" />
-            <span>Account</span>
+            <span>{t("account")}</span>
           </TabsTrigger>
         </TabsList>
         
@@ -256,9 +201,9 @@ const Settings = () => {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="dark-mode">Dark Mode</Label>
+                  <Label htmlFor="dark-mode">{t("darkMode")}</Label>
                   <p className="text-sm text-muted-foreground">
-                    Toggle between light and dark theme
+                    {t("toggle")} between light and dark theme
                   </p>
                 </div>
                 <Switch
@@ -269,7 +214,7 @@ const Settings = () => {
               </div>
               
               <div className="space-y-3">
-                <Label>Theme Color</Label>
+                <Label>{t("themeColor")}</Label>
                 <div className="grid grid-cols-5 gap-3">
                   {availableThemes.map(theme => (
                     <button
@@ -313,7 +258,7 @@ const Settings = () => {
               </div>
               
               <div className="space-y-3">
-                <Label>Language</Label>
+                <Label>{t("language")}</Label>
                 <Select
                   value={settings.language}
                   onValueChange={(value) => updateSetting('language', value)}
@@ -323,9 +268,9 @@ const Settings = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="english">English</SelectItem>
-                    <SelectItem value="spanish">Spanish</SelectItem>
-                    <SelectItem value="french">French</SelectItem>
-                    <SelectItem value="german">German</SelectItem>
+                    <SelectItem value="spanish">Español</SelectItem>
+                    <SelectItem value="french">Français</SelectItem>
+                    <SelectItem value="german">Deutsch</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -366,6 +311,22 @@ const Settings = () => {
               <p className="text-xs text-muted-foreground">
                 Additional avatars are unlocked by earning achievements
               </p>
+              
+              <div className="pt-4">
+                <h3 className="text-sm font-semibold mb-3">Current Avatar</h3>
+                <div className="flex items-center gap-3">
+                  <UserAvatar size="lg" />
+                  <div>
+                    <p className="text-sm font-medium">{displayName}</p>
+                    <p className="text-xs text-muted-foreground">{
+                      settings.avatar === 'default' ? 'Default Avatar' :
+                      settings.avatar === 'zen' ? 'Zen Master' : 
+                      settings.avatar === 'productivity' ? 'Productivity Pro' : 
+                      'Custom Avatar'
+                    }</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </Tile>
         </TabsContent>
@@ -375,7 +336,7 @@ const Settings = () => {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="notifications">Push Notifications</Label>
+                  <Label htmlFor="notifications">{t("notifications")}</Label>
                   <p className="text-sm text-muted-foreground">
                     Receive notifications for task reminders and achievements
                   </p>
@@ -389,7 +350,7 @@ const Settings = () => {
               
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="sound-effects">Sound Effects</Label>
+                  <Label htmlFor="sound-effects">{t("soundEffects")}</Label>
                   <p className="text-sm text-muted-foreground">
                     Play sounds for completed tasks and achievements
                   </p>
@@ -402,7 +363,7 @@ const Settings = () => {
               </div>
               
               <div className="space-y-3">
-                <Label>Daily Reminder Time</Label>
+                <Label>{t("dailyReminder")}</Label>
                 <Input 
                   type="time" 
                   value={settings.dailyReminderTime}
@@ -420,7 +381,7 @@ const Settings = () => {
           <Tile title="Account Information">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="display-name">Display Name</Label>
+                <Label htmlFor="display-name">{t("displayName")}</Label>
                 <Input 
                   id="display-name" 
                   placeholder="Your name" 
@@ -430,7 +391,7 @@ const Settings = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("email")}</Label>
                 <Input 
                   id="email" 
                   type="email" 
@@ -450,10 +411,10 @@ const Settings = () => {
                   onClick={() => resetPasswordMutation.mutate()}
                   disabled={resetPasswordMutation.isPending}
                 >
-                  {resetPasswordMutation.isPending ? "Sending..." : "Reset Password"}
+                  {resetPasswordMutation.isPending ? t("pleaseWait") : t("resetPassword")}
                 </Button>
                 <Button variant="destructive">
-                  Delete Account
+                  {t("deleteAccount")}
                 </Button>
               </div>
             </div>
@@ -466,7 +427,7 @@ const Settings = () => {
           onClick={saveSettings}
           disabled={updateUserProfileMutation.isPending}
         >
-          {updateUserProfileMutation.isPending ? "Saving..." : "Save Settings"}
+          {updateUserProfileMutation.isPending ? t("pleaseWait") : t("saveSettings")}
         </Button>
       </div>
     </div>

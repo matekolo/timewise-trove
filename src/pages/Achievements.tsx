@@ -10,12 +10,15 @@ import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Achievement, UserAchievement } from "@/types/achievementTypes";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const Achievements = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
   
+  // Get all the data needed for achievement tracking
   const { data: tasks = [] } = useQuery({
     queryKey: ["achievement-tasks"],
     queryFn: async () => {
@@ -37,6 +40,18 @@ const Achievements = () => {
       
       if (error) throw error;
       return data;
+    },
+  });
+  
+  const { data: notes = [] } = useQuery({
+    queryKey: ["achievement-notes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("notes")
+        .select("*");
+      
+      if (error) throw error;
+      return data || [];
     },
   });
   
@@ -113,15 +128,18 @@ const Achievements = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["user-achievements"] });
-      // Trigger a local storage event to update settings in other components
-      window.dispatchEvent(new Event('storage'));
+      // Trigger a settings update
+      window.dispatchEvent(new Event('settings-updated'));
     }
   });
   
+  // Calculate achievement progress
   const taskCompletedCount = tasks.filter((task: any) => task.completed).length;
-  const longestStreak = habits.reduce((max: number, habit: any) => 
-    Math.max(max, habit.streak || 0), 0);
+  const highPriorityCompleted = tasks.filter((t: any) => t.priority === "high" && t.completed).length;
+  const longestStreak = habits.reduce((max: number, habit: any) => Math.max(max, habit.streak || 0), 0);
+  const notesCount = notes.length;
   
+  // Define achievements with real tracking
   const achievementList: Achievement[] = [
     {
       id: "early-bird",
@@ -130,6 +148,7 @@ const Achievements = () => {
       criteria: "Complete tasks early in the morning",
       reward: "Morning Theme",
       icon: "sun",
+      progressCount: taskCompletedCount,
       progress: Math.min(taskCompletedCount / 5 * 100, 100),
       unlocked: taskCompletedCount >= 5
     },
@@ -140,8 +159,9 @@ const Achievements = () => {
       criteria: "Complete high priority tasks",
       reward: "Productivity Avatar",
       icon: "target",
-      progress: Math.min((tasks.filter((t: any) => t.priority === "high" && t.completed).length / 10) * 100, 100),
-      unlocked: tasks.filter((t: any) => t.priority === "high" && t.completed).length >= 10
+      progressCount: highPriorityCompleted,
+      progress: Math.min(highPriorityCompleted / 10 * 100, 100),
+      unlocked: highPriorityCompleted >= 10
     },
     {
       id: "task-champion",
@@ -150,6 +170,7 @@ const Achievements = () => {
       criteria: "Complete a total of 25 tasks",
       reward: "Champion Badge",
       icon: "award",
+      progressCount: taskCompletedCount,
       progress: Math.min(taskCompletedCount / 25 * 100, 100),
       unlocked: taskCompletedCount >= 25
     },
@@ -160,6 +181,7 @@ const Achievements = () => {
       criteria: "Maintain a habit streak for 7 days",
       reward: "Gold Theme",
       icon: "flame",
+      progressCount: longestStreak,
       progress: Math.min(longestStreak / 7 * 100, 100),
       unlocked: longestStreak >= 7
     },
@@ -170,8 +192,9 @@ const Achievements = () => {
       criteria: "Create at least 5 notes",
       reward: "Zen Avatar",
       icon: "feather",
-      progress: 0,
-      unlocked: false
+      progressCount: notesCount,
+      progress: Math.min(notesCount / 5 * 100, 100),
+      unlocked: notesCount >= 5
     },
     {
       id: "habit-breaker",
@@ -180,8 +203,9 @@ const Achievements = () => {
       criteria: "Mark 3 habits as 'bad' and maintain streak",
       reward: "Custom Theme Colors",
       icon: "scissors",
-      progress: 0,
-      unlocked: false
+      progressCount: habits.filter((h: any) => h.type === 'bad' && h.streak >= 7).length,
+      progress: Math.min(habits.filter((h: any) => h.type === 'bad' && h.streak >= 7).length / 3 * 100, 100),
+      unlocked: habits.filter((h: any) => h.type === 'bad' && h.streak >= 7).length >= 3
     },
     {
       id: "consistency-king",
@@ -190,7 +214,8 @@ const Achievements = () => {
       criteria: "Complete at least one task every day for 14 days",
       reward: "Royal Crown Avatar",
       icon: "crown",
-      progress: 30,
+      progressCount: 0, // This would need more complex tracking
+      progress: 30, // Placeholder
       unlocked: false
     },
     {
@@ -200,15 +225,16 @@ const Achievements = () => {
       criteria: "Complete tasks in the evening",
       reward: "Dark Theme",
       icon: "moon",
-      progress: 70,
+      progressCount: 0, // This would need time-based tracking
+      progress: 70, // Placeholder
       unlocked: false
     }
   ];
   
   const categories = [
-    { id: "all", name: "All" },
-    { id: "unlocked", name: "Unlocked" },
-    { id: "locked", name: "Locked" }
+    { id: "all", name: t("all") },
+    { id: "unlocked", name: t("unlocked") },
+    { id: "locked", name: t("locked") }
   ];
   
   // Add 'claimed' property to all achievements based on userAchievements data
@@ -253,8 +279,8 @@ const Achievements = () => {
         applyRewardEffect(achievement);
         
         toast({
-          title: "Reward claimed!",
-          description: `You've claimed: ${achievement.reward}`,
+          title: t("rewardClaimed"),
+          description: `${t("reward")}: ${achievement.reward}`,
         });
       },
       onError: (error) => {
@@ -303,7 +329,7 @@ const Achievements = () => {
     }
     
     // Trigger storage event to make sure other components update
-    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new Event('settings-updated'));
     
     toast({
       title: "Reward applied!",
@@ -333,7 +359,7 @@ const Achievements = () => {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <h1 className="text-3xl font-bold">Achievements</h1>
+          <h1 className="text-3xl font-bold">{t("achievements")}</h1>
           <p className="text-muted-foreground">Track your progress and earn rewards</p>
         </motion.div>
         
@@ -344,7 +370,7 @@ const Achievements = () => {
           onClick={() => navigate("/settings")}
         >
           <Settings className="h-4 w-4" />
-          <span>Settings</span>
+          <span>{t("settings")}</span>
         </Button>
       </div>
       
@@ -378,7 +404,7 @@ const Achievements = () => {
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                     achievement.unlocked 
                       ? 'bg-primary/20 text-primary' 
-                      : 'bg-gray-100 text-gray-400'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
                   }`}>
                     {achievement.unlocked ? (
                       achievement.claimed ? <Check className="h-5 w-5" /> : <Trophy className="h-5 w-5" />
@@ -397,8 +423,17 @@ const Achievements = () => {
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="text-muted-foreground">Progress</span>
-                      <span>{Math.round(achievement.progress)}%</span>
+                      <span className="text-muted-foreground">{t("progress")}</span>
+                      <span>
+                        {achievement.progressCount !== undefined ? 
+                          `${achievement.progressCount} / ${achievement.id === 'zen-mind' ? '5' : 
+                             achievement.id === 'focus-master' ? '10' : 
+                             achievement.id === 'streak-master' ? '7' : 
+                             achievement.id === 'task-champion' ? '25' : 
+                             achievement.id === 'habit-breaker' ? '3' : 
+                             achievement.id === 'early-bird' ? '5' : '10'}`
+                          : `${Math.round(achievement.progress)}%`}
+                      </span>
                     </div>
                     <Progress value={achievement.progress} className="h-1.5" />
                   </div>
@@ -413,7 +448,7 @@ const Achievements = () => {
                     
                     <div className="flex items-start gap-2">
                       <Star className="h-4 w-4 text-yellow-500 mt-0.5" />
-                      <span className="text-xs">Reward: <span className="font-medium">{achievement.reward}</span></span>
+                      <span className="text-xs">{t("reward")}: <span className="font-medium">{achievement.reward}</span></span>
                     </div>
                   </div>
                 </div>
@@ -426,12 +461,12 @@ const Achievements = () => {
                   disabled={claimAchievementMutation.isPending}
                 >
                   {claimAchievementMutation.isPending && achievement.id === claimAchievementMutation.variables ? 
-                    "Processing..." : 
+                    t("pleaseWait") : 
                     achievement.claimed ? 
-                      "Claimed" : 
+                      t("claimed") : 
                       achievement.unlocked ? 
-                        "Claim Reward" : 
-                        "Locked"}
+                        t("claimReward") : 
+                        t("locked")}
                 </Button>
               </div>
             </Tile>

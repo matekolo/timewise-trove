@@ -7,6 +7,7 @@ export interface Achievement {
   reward: string;
   icon: string;
   progress: number;
+  progressCount?: number; // Actual count for tracking (e.g., number of notes)
   unlocked: boolean;
   claimed?: boolean;
 }
