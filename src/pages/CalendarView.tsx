@@ -168,23 +168,15 @@ const CalendarView = () => {
   }, []);
 
   const calendarModifiers = useMemo(() => {
-    const modifiers: Record<string, Date[]> = {};
+    const modifiers: DayModifiers = {};
     
-    events.forEach(event => {
-      const eventDate = parseISO(event.date);
-      const eventType = event.type;
-      
-      if (!modifiers[eventType]) {
-        modifiers[eventType] = [];
-      }
-      
-      modifiers[eventType].push(eventDate);
+    Object.keys(eventTypes).forEach(type => {
+      modifiers[type] = events
+        .filter(event => event.type === type)
+        .map(event => parseISO(event.date));
     });
     
-    return {
-      ...modifiers,
-      eventTypes: events.map(event => event.type)
-    };
+    return modifiers;
   }, [events]);
 
   const selectedDateEvents = useMemo(() => {

@@ -29,8 +29,9 @@ function Calendar({
       
       // Get event type safely (default to 'default' if not found)
       let eventType = 'default';
-      if (props.modifiers && 'eventTypes' in props.modifiers) {
-        const eventTypes = props.modifiers.eventTypes as any[];
+      const modifiersObject = props.modifiers as Record<string, unknown> || {};
+      if (modifiersObject && typeof modifiersObject === 'object' && 'eventTypes' in modifiersObject) {
+        const eventTypes = modifiersObject.eventTypes as any[];
         if (Array.isArray(eventTypes) && eventTypes[index]) {
           eventType = eventTypes[index];
         }
