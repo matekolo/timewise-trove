@@ -46,7 +46,7 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
           <Alert variant="default" className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
             <InfoIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
             <AlertDescription className="text-green-700 dark:text-green-300">
-              Notifications are enabled. You can test them using the "Send Test Notification" button below.
+              Notifications are enabled. You will now receive notifications for tasks and daily reminders.
             </AlertDescription>
           </Alert>
         )}
