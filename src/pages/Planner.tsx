@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Plus, Filter, Check, Trash2, ArrowUp, ArrowDown, CalendarIcon, Tag, Clock } from "lucide-react";
@@ -11,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { toast } from "@/components/ui/use-toast";
+import { toast as toastHook } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
@@ -70,7 +69,7 @@ const Planner = () => {
         .order("created_at", { ascending: true });
       
       if (error) {
-        toast({
+        toastHook({
           title: "Error fetching tasks",
           description: error.message,
           variant: "destructive",
@@ -91,7 +90,7 @@ const Planner = () => {
         .single();
       
       if (error) {
-        toast({
+        toastHook({
           title: "Error adding task",
           description: error.message,
           variant: "destructive",
@@ -105,7 +104,7 @@ const Planner = () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["achievement-tasks"] });
-      toast({
+      toastHook({
         title: "Task added",
         description: `${newTask.title} has been added to your planner.`,
       });
@@ -131,7 +130,7 @@ const Planner = () => {
         .single();
       
       if (error) {
-        toast({
+        toastHook({
           title: "Error updating task",
           description: error.message,
           variant: "destructive",
@@ -156,7 +155,7 @@ const Planner = () => {
         .eq("id", taskId);
       
       if (error) {
-        toast({
+        toastHook({
           title: "Error deleting task",
           description: error.message,
           variant: "destructive",
@@ -168,7 +167,7 @@ const Planner = () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["achievement-tasks"] });
-      toast({
+      toastHook({
         title: "Task deleted",
         description: "The task has been deleted from your planner.",
       });
@@ -177,7 +176,7 @@ const Planner = () => {
 
   const addTask = async () => {
     if (!newTask.title) {
-      toast({
+      toastHook({
         title: "Task title required",
         description: "Please add a title for your task",
         variant: "destructive",
@@ -188,7 +187,7 @@ const Planner = () => {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      toast({
+      toastHook({
         title: "Authentication error",
         description: "You must be logged in to add tasks",
         variant: "destructive",
@@ -201,7 +200,6 @@ const Planner = () => {
       user_id: user.id,
     };
     
-    // Add time if date is selected
     if (date) {
       const dateObj = new Date(date);
       if (showTimePicker && timeInput) {
@@ -257,7 +255,6 @@ const Planner = () => {
 
   const filteredTasks = tasks
     .filter(task => {
-      // First apply the main filter
       if (filter === "all") return true;
       if (filter === "completed") return task.completed;
       if (filter === "incomplete") return !task.completed;
@@ -265,7 +262,6 @@ const Planner = () => {
       return true;
     })
     .filter(task => {
-      // Then apply the category filter if it's not "all"
       if (categoryFilter === "all") return true;
       return task.category === categoryFilter;
     })
