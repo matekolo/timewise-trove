@@ -205,6 +205,10 @@ const Reports = () => {
     });
   };
 
+  const getHabitColor = (entry: any) => {
+    return entry.type === "bad" ? "#EF4444" : "#10B981";
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -319,11 +323,15 @@ const Reports = () => {
                 />
                 <Bar 
                   dataKey="value" 
-                  fill="#10B981" 
                   radius={[4, 4, 0, 0]} 
                   name="Progress"
-                  fill={(data) => data.type === "bad" ? "#EF4444" : "#10B981"}
-                />
+                >
+                  {
+                    habitData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={getHabitColor(entry)} />
+                    ))
+                  }
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
