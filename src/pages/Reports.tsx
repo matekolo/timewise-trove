@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -93,6 +92,7 @@ const Reports = () => {
         throw error;
       }
       
+      console.log("Tasks fetched from database:", data);
       return data as Task[];
     },
   });
@@ -143,9 +143,7 @@ const Reports = () => {
   const filteredTasks = tasks.filter(task => {
     const { start, end } = getDateRange();
     const taskDate = parseISO(task.created_at);
-    const isInRange = isWithinInterval(taskDate, { start, end });
-    console.log(`Filtering task "${task.title}" (${format(taskDate, "yyyy-MM-dd HH:mm")}): ${isInRange ? "IN RANGE" : "OUT OF RANGE"} (${format(start, "yyyy-MM-dd")} to ${format(end, "yyyy-MM-dd")})`);
-    return isInRange;
+    return isWithinInterval(taskDate, { start, end });
   });
   
   // Format habit data for chart
@@ -163,7 +161,7 @@ const Reports = () => {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const result = [];
     
-    // Start date for the week view
+    // Get current week's dates based on selected date
     const selectedDate = date || new Date();
     const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
     
@@ -188,15 +186,10 @@ const Reports = () => {
       console.log(`\nProcessing ${dayName}, ${format(dayDate, "yyyy-MM-dd")}`);
       console.log(`  Range: ${format(dayStart, "yyyy-MM-dd HH:mm:ss")} to ${format(dayEnd, "yyyy-MM-dd HH:mm:ss")}`);
       
-      // Using startOfDay and endOfDay to compare tasks for the entire day
+      // Get tasks for this day by comparing their created_at date
       const dayTasks = tasks.filter(task => {
         const taskDate = parseISO(task.created_at);
-        
-        // Check if the task date is within this day's range
-        const taskInDay = isWithinInterval(taskDate, { 
-          start: dayStart, 
-          end: dayEnd 
-        });
+        const taskInDay = taskDate >= dayStart && taskDate <= dayEnd;
         
         if (taskInDay) {
           console.log(`  ✓ Task "${task.title}" matches for ${dayName} (${format(taskDate, "yyyy-MM-dd HH:mm")})`);
@@ -207,7 +200,7 @@ const Reports = () => {
       
       console.log(`  Total tasks for ${dayName}: ${dayTasks.length}`);
       
-      // Calculate completion percentage or default to 0
+      // Calculate completion percentage
       if (dayTasks.length === 0) {
         result.push({ name: dayName, value: 0 });
       } else {
@@ -378,7 +371,7 @@ const Reports = () => {
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
-                <YAxis />
+                <YAxis domain={[0, 100]} />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: "white",
@@ -386,6 +379,7 @@ const Reports = () => {
                     borderRadius: "0.5rem",
                     boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
                   }}
+                  formatter={(value) => [`${value}%`, 'Completion Rate']}
                 />
                 <Line
                   type="monotone"
