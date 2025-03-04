@@ -78,11 +78,10 @@ function Calendar({
     );
   };
 
-  // Create a custom day click handler that stops propagation if needed
+  // Handle day click with mouse events
   const handleDayClick: DayClickEventHandler = React.useCallback(
     (day, modifiers, e) => {
-      if (preventPopoverClose && e) {
-        // Stop propagation to prevent the popover from closing
+      if (e && preventPopoverClose) {
         e.stopPropagation();
       }
       
@@ -91,14 +90,13 @@ function Calendar({
         props.onDayClick(day, modifiers, e);
       }
       
-      // Call onSelect from props if it exists (used in form components)
-      // We need to handle this separately because it's not part of DayPicker's standard props
-      const onSelectProp = props as unknown as { onSelect?: (date: Date) => void };
-      if (onSelectProp.onSelect && day) {
-        onSelectProp.onSelect(day);
+      // Handle the onSelect prop which is used by form components
+      const { onSelect } = props as any;
+      if (onSelect && day) {
+        onSelect(day);
       }
     },
-    [props, preventPopoverClose]
+    [preventPopoverClose, props]
   );
 
   return (
@@ -142,6 +140,14 @@ function Calendar({
       components={{
         IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
+        Day: ({ ...dayProps }) => (
+          <div 
+            onClick={(e) => preventPopoverClose && e.stopPropagation()}
+            onMouseDown={(e) => preventPopoverClose && e.stopPropagation()}
+          >
+            {renderDay(dayProps.date, dayProps.displayMonth ? {} : { outside: true })}
+          </div>
+        ),
       }}
       onDayClick={handleDayClick}
       {...props}
