@@ -1,7 +1,6 @@
 
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
-import { toast } from "@/components/ui/use-toast";
 
 interface NotificationPermissionStatusProps {
   permission: NotificationPermission | null;
