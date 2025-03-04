@@ -2,8 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast"; // Correct import from hooks/use-toast
 import { UserSettings } from "@/hooks/useUserSettings";
+import { showNotificationToast, showErrorToast } from "@/utils/toastUtils";
 
 export const useNotifications = (settings: UserSettings, updateSetting: (key: keyof UserSettings, value: any) => void) => {
   const queryClient = useQueryClient();
@@ -22,11 +22,10 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
         return [];
       }
       
-      // Get current time minus 5 minutes to also fetch very recent tasks
+      // Get current time
       const now = new Date();
-      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
       
-      // Get tomorrow's date for the upper limit
+      // Get tasks for the next 24 hours
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       
@@ -35,41 +34,40 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
         .select("*")
         .eq("completed", false)
         .not("time", "is", null)
-        .gte("time", fiveMinutesAgo.toISOString()) // Get tasks from 5 minutes ago
-        .lt("time", tomorrow.toISOString()); // Up to tomorrow
+        .gte("time", now.toISOString()) 
+        .lt("time", tomorrow.toISOString());
       
       if (error) {
         console.error("Error fetching upcoming tasks:", error);
         return [];
       }
       
-      console.log(`Fetched ${data?.length || 0} tasks for notifications, time range: ${fiveMinutesAgo.toISOString()} to ${tomorrow.toISOString()}`);
+      console.log(`Fetched ${data?.length || 0} tasks for notifications, time range: ${now.toISOString()} to ${tomorrow.toISOString()}`);
       
-      // Log each task's time for debugging
+      // Debug each task's scheduled time
       if (data && data.length > 0) {
         data.forEach(task => {
           const taskTime = new Date(task.time);
           const minutesToGo = Math.round((taskTime.getTime() - now.getTime()) / (60 * 1000));
-          console.log(`Task "${task.title}" is due ${minutesToGo > 0 ? `in ${minutesToGo} minutes` : 'now or in the past'} (${taskTime.toLocaleString()})`);
+          console.log(`Task "${task.title}" is scheduled for ${taskTime.toLocaleString()} (${minutesToGo} minutes from now)`);
         });
       }
       
       return data || [];
     },
     enabled: settings.notifications && notificationPermission === "granted",
-    refetchInterval: 30000, // Refetch every 30 seconds to ensure we don't miss tasks
-    staleTime: 15000, // Consider data stale after 15 seconds
+    refetchInterval: 60000, // Refetch every minute
+    staleTime: 30000, // Consider data stale after 30 seconds
   });
 
   // Initialize notification system
   useEffect(() => {
     if (!("Notification" in window)) {
       setNotificationSupported(false);
-      toast({
-        title: "Notifications Not Supported",
-        description: "Your browser does not support notifications",
-        variant: "destructive",
-      });
+      showErrorToast(
+        "Notifications Not Supported", 
+        "Your browser does not support notifications"
+      );
       return;
     }
     
@@ -81,11 +79,10 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     
     if (Notification.permission === "denied" && settings.notifications) {
       updateSetting('notifications', false);
-      toast({
-        title: "Notification Permission Denied",
-        description: "Please enable notifications in your browser settings to use this feature.",
-        variant: "destructive",
-      });
+      showErrorToast(
+        "Notification Permission Denied", 
+        "Please enable notifications in your browser settings to use this feature."
+      );
     }
     
     return () => {
@@ -142,27 +139,26 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
           });
         }
         
-        // Also show in-app toast - Use direct toast from hooks/use-toast
-        toast({
-          title: "Task Reminder",
-          description: `It's time for: ${task.title}`,
-        });
+        // Use our global toast utility
+        showNotificationToast(
+          "Task Reminder", 
+          `It's time for: ${task.title}`
+        );
         
         console.log("Task notification successfully triggered");
       } catch (error) {
         console.error("Error triggering task notification:", error);
-        toast({
-          title: "Notification Error",
-          description: "Could not trigger task notification",
-          variant: "destructive",
-        });
+        showErrorToast(
+          "Notification Error", 
+          "Could not trigger task notification"
+        );
       }
     } else {
       console.warn("Cannot trigger notification - permission not granted or notifications disabled");
     }
   }, [settings.notifications, settings.soundEffects]);
 
-  // COMPLETELY REWRITTEN: Task notification scheduling - using the same reliable approach as dailyReminder
+  // Task notification scheduling - CRITICAL FIX
   useEffect(() => {
     console.log("Task notification scheduler effect triggered. Tasks count:", upcomingTasks.length);
     
@@ -170,6 +166,8 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     Object.values(taskNotificationTimeoutsIds).forEach(id => {
       clearTimeout(id);
     });
+    
+    // Reset timeout IDs
     setTaskNotificationTimeoutsIds({});
     
     if (!settings.notifications || notificationPermission !== "granted" || !upcomingTasks.length) {
@@ -178,11 +176,11 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     }
     
     const newTimeoutIds: Record<string, number> = {};
-    const now = new Date();
+    const now = new Date().getTime();
     
-    console.log(`Current time for task scheduling: ${now.toLocaleString()}`);
+    console.log(`Current time for task scheduling: ${new Date().toLocaleString()}`);
     
-    // IMPORTANT: Process each task and schedule its notification
+    // Process each task and schedule its notification WITHOUT immediate execution
     upcomingTasks.forEach(task => {
       if (!task.time) {
         console.log(`Task ${task.id} has no time set, skipping`);
@@ -190,40 +188,27 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
       }
       
       // Parse the task time correctly
-      const taskTime = new Date(task.time);
+      const taskTime = new Date(task.time).getTime();
       
       // Calculate the delay in milliseconds
-      const delay = taskTime.getTime() - now.getTime();
+      const delay = taskTime - now;
       const minutesToGo = Math.round(delay / (60 * 1000));
       
-      console.log(`Scheduling task: "${task.title}", Time: ${taskTime.toLocaleString()}, Delay: ${delay}ms (${minutesToGo} minutes)`);
+      console.log(`Scheduling task: "${task.title}", Time: ${new Date(taskTime).toLocaleString()}, Delay: ${delay}ms (${minutesToGo} minutes)`);
       
-      // For immediate notification if task is due very soon (within 2 minutes)
-      if (delay >= -2 * 60 * 1000 && delay <= 2 * 60 * 1000) {
-        console.log(`Task "${task.title}" is due now or very soon, triggering immediate notification`);
-        // Use setTimeout with a tiny delay to avoid flooding with notifications
-        const id = window.setTimeout(() => {
-          triggerTaskNotification(task);
-        }, 100) as unknown as number;
-        newTimeoutIds[`immediate-${task.id}`] = id;
-        return;
-      }
-      
-      // Only schedule future tasks (that are more than 2 minutes in the future)
-      if (delay > 2 * 60 * 1000 && delay < 24 * 60 * 60 * 1000) {
-        console.log(`Scheduling future notification for task "${task.title}" in ${minutesToGo} minutes`);
+      // Only schedule future tasks (positive delay)
+      if (delay > 0) {
+        console.log(`✅ Scheduling notification for task "${task.title}" in ${minutesToGo} minutes`);
         
-        // Use direct setTimeout API (same approach used by daily reminders)
+        // Use window.setTimeout to ensure it runs outside React
         const id = window.setTimeout(() => {
           console.log(`⏰ TIME TO EXECUTE notification for task "${task.title}"`);
           triggerTaskNotification(task);
         }, delay) as unknown as number;
         
         newTimeoutIds[task.id] = id;
-      } else if (delay <= -2 * 60 * 1000) {
-        console.log(`Task "${task.title}" time has already passed by more than 2 minutes (${Math.abs(minutesToGo)} minutes ago), skipping notification`);
       } else {
-        console.log(`Task "${task.title}" is more than 24 hours in the future (${minutesToGo} minutes), skipping for now`);
+        console.log(`⚠️ Task "${task.title}" time has already passed (${Math.abs(minutesToGo)} minutes ago), skipping notification`);
       }
     });
     
@@ -236,7 +221,7 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
         clearTimeout(id);
       });
     };
-  }, [settings.notifications, notificationPermission, upcomingTasks, settings.soundEffects, triggerTaskNotification]);
+  }, [settings.notifications, notificationPermission, upcomingTasks, triggerTaskNotification]);
 
   const scheduleReminderNotification = () => {
     if (settings.notifications && settings.dailyReminderTime && notificationPermission === "granted") {
@@ -286,11 +271,11 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
           });
         }
         
-        // Use the directly imported toast function
-        toast({
-          title: "Daily Reminder",
-          description: "It's time to check your tasks and habits for today!",
-        });
+        // Use our global toast utility
+        showNotificationToast(
+          "Daily Reminder", 
+          "It's time to check your tasks and habits for today!"
+        );
         
         console.log("Daily reminder notification successfully sent");
       } catch (error) {
@@ -309,10 +294,10 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
         
         if (permission === "granted") {
           updateSetting('notifications', true);
-          toast({
-            title: "Notifications Enabled",
-            description: "You will now receive notifications from the app.",
-          });
+          showSuccessToast(
+            "Notifications Enabled", 
+            "You will now receive notifications from the app."
+          );
           
           // Refresh task notifications immediately
           queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
@@ -321,20 +306,18 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
             scheduleReminderNotification();
           }
         } else {
-          toast({
-            title: "Notifications Blocked",
-            description: "Please enable notifications in your browser settings to use this feature.",
-            variant: "destructive",
-          });
+          showErrorToast(
+            "Notifications Blocked", 
+            "Please enable notifications in your browser settings to use this feature."
+          );
           updateSetting('notifications', false);
         }
       } catch (error) {
         console.error("Error requesting notification permission:", error);
-        toast({
-          title: "Error",
-          description: "There was an error requesting notification permission.",
-          variant: "destructive",
-        });
+        showErrorToast(
+          "Error", 
+          "There was an error requesting notification permission."
+        );
       }
     } else {
       updateSetting('notifications', false);
@@ -353,10 +336,10 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
         
         if (permission === "granted") {
           updateSetting('notifications', true);
-          toast({
-            title: "Notifications Enabled",
-            description: "You will now receive notifications from the app.",
-          });
+          showSuccessToast(
+            "Notifications Enabled", 
+            "You will now receive notifications from the app."
+          );
           
           // Refresh task notifications immediately
           queryClient.invalidateQueries({ queryKey: ["upcoming-tasks"] });
@@ -365,19 +348,17 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
             scheduleReminderNotification();
           }
         } else {
-          toast({
-            title: "Notification Permission Denied",
-            description: "Please enable notifications in your browser settings to use this feature.",
-            variant: "destructive",
-          });
+          showErrorToast(
+            "Notification Permission Denied", 
+            "Please enable notifications in your browser settings to use this feature."
+          );
         }
       } catch (error) {
         console.error("Error requesting notification permission:", error);
-        toast({
-          title: "Error",
-          description: "There was an error requesting notification permission.",
-          variant: "destructive",
-        });
+        showErrorToast(
+          "Error", 
+          "There was an error requesting notification permission."
+        );
       }
     }
   };
@@ -406,28 +387,26 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
             });
           }
           
-          // Direct toast call
-          toast({
-            title: "Test Notification Sent",
-            description: "If you didn't see a notification, check your browser settings.",
-          });
+          // Use our global toast utility
+          showSuccessToast(
+            "Test Notification Sent", 
+            "If you didn't see a notification, check your browser settings."
+          );
           
           console.log("Test notification successfully sent");
         }, 0);
       } catch (error) {
         console.error("Error sending test notification:", error);
-        toast({
-          title: "Notification Error",
-          description: "Could not send test notification: " + (error instanceof Error ? error.message : String(error)),
-          variant: "destructive",
-        });
+        showErrorToast(
+          "Notification Error", 
+          "Could not send test notification: " + (error instanceof Error ? error.message : String(error))
+        );
       }
     } else {
-      toast({
-        title: "Notification Error", 
-        description: "Notifications are not enabled or permission was denied",
-        variant: "destructive",
-      });
+      showErrorToast(
+        "Notification Error", 
+        "Notifications are not enabled or permission was denied"
+      );
     }
   };
   
@@ -458,10 +437,10 @@ export const useNotifications = (settings: UserSettings, updateSetting: (key: ke
     console.log(`Manual check complete. Notified about ${notifiedCount} tasks.`);
     
     if (notifiedCount === 0) {
-      toast({
-        title: "No tasks due now",
-        description: "There are no tasks due at this moment.",
-      });
+      showSuccessToast(
+        "No tasks due now", 
+        "There are no tasks due at this moment."
+      );
     }
   };
 

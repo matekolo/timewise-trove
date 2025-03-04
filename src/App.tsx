@@ -21,9 +21,10 @@ const queryClient = new QueryClient();
 const App = () => {
   return (
     <>
-      {/* Place Toaster components at the root level, outside everything */}
+      {/* IMPORTANT: Toaster components must be outside everything else */}
       <Toaster />
-      <Sonner />
+      <Sonner position="top-right" />
+      
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Routes>

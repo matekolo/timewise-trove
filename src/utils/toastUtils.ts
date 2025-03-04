@@ -10,12 +10,13 @@ export const showToast = (props: {
   description?: string;
   variant?: "default" | "destructive";
 }) => {
-  // Use setTimeout to ensure the toast is triggered outside of React rendering
+  // Ensure toast is triggered outside of any component rendering cycle
+  // This is critical for global visibility across routes
   setTimeout(() => {
     hookToast({
       ...props,
-      // Force longer display duration for important notifications
-      duration: 8000, 
+      // Longer duration for better visibility
+      duration: 10000,
     });
   }, 0);
 };
@@ -30,7 +31,7 @@ export const showErrorToast = (title: string, description?: string) => {
 };
 
 export const showNotificationToast = (title: string, description?: string) => {
-  // Play notification sound (this could be made configurable)
+  // Play notification sound (if available)
   try {
     const audio = new Audio("/notification-sound.mp3");
     audio.play().catch(console.error);
