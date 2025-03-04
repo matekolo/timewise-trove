@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { toast } from "@/hooks/use-toast";
+import { toast, notificationExists } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
@@ -64,6 +64,7 @@ const Planner = () => {
   const { settings } = useUserSettings();
   const taskNotificationTimeoutsIdsRef = useRef<Record<string, number>>({});
   const notificationsInitializedRef = useRef(false);
+  const mountedRef = useRef(false);
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks"],
@@ -74,11 +75,13 @@ const Planner = () => {
         .order("created_at", { ascending: true });
       
       if (error) {
-        toast({
-          title: "Error fetching tasks",
-          description: error.message,
-          variant: "destructive",
-        });
+        if (!notificationExists("Error fetching tasks", error.message)) {
+          toast({
+            title: "Error fetching tasks",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
         throw error;
       }
       
@@ -87,7 +90,9 @@ const Planner = () => {
   });
 
   useEffect(() => {
-    // Only initialize once per component mount
+    mountedRef.current = true;
+    
+    // Only initialize once when tasks are loaded
     if (!notificationsInitializedRef.current && settings.notifications && Notification.permission === "granted" && tasks.length > 0) {
       console.log("Setting up task notifications for", tasks.length, "tasks");
       
@@ -126,6 +131,7 @@ const Planner = () => {
     }
     
     return () => {
+      mountedRef.current = false;
       // Clean up all timeouts when component unmounts
       Object.values(taskNotificationTimeoutsIdsRef.current).forEach(id => {
         clearTimeout(id);
@@ -137,6 +143,12 @@ const Planner = () => {
     console.log("Triggering task notification for:", task.title);
     if (Notification.permission === "granted" && settings.notifications) {
       try {
+        // Check if this notification is already being displayed
+        if (notificationExists("Task Reminder", `It's time for: ${task.title}`)) {
+          console.log("Notification already active for task:", task.title);
+          return;
+        }
+        
         const notification = new Notification("Task Reminder", {
           body: `It's time for: ${task.title}`,
           icon: "/favicon.ico"

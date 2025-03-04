@@ -1,3 +1,4 @@
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +23,7 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   const timeoutIdRef = useRef<number | null>(null);
   const taskNotificationTimeoutsIdsRef = useRef<Record<string, number>>({});
   const initializedRef = useRef(false);
+  const mountedRef = useRef(false);
 
   const { data: upcomingTasks = [], refetch: refetchTasks } = useQuery({
     queryKey: ["upcoming-tasks"],
@@ -56,6 +58,8 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   });
 
   useEffect(() => {
+    mountedRef.current = true;
+    
     if (!("Notification" in window)) {
       setNotificationSupported(false);
       if (!notificationExists(t("notificationsNotSupported"), t("notificationsNotSupportedDesc"))) {
@@ -86,6 +90,7 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
     }
     
     return () => {
+      mountedRef.current = false;
       if (timeoutIdRef.current) {
         clearTimeout(timeoutIdRef.current);
       }
@@ -97,7 +102,7 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   }, [t, settings.notifications, updateSetting]);
 
   useEffect(() => {
-    if (!initializedRef.current && settings.notifications && settings.dailyReminderTime && notificationPermission === "granted") {
+    if (!initializedRef.current && mountedRef.current && settings.notifications && settings.dailyReminderTime && notificationPermission === "granted") {
       scheduleReminderNotification();
       initializedRef.current = true;
     }
@@ -110,7 +115,7 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
   }, [settings.notifications, settings.dailyReminderTime, notificationPermission]);
 
   useEffect(() => {
-    if (settings.notifications && notificationPermission === "granted" && upcomingTasks.length > 0) {
+    if (mountedRef.current && settings.notifications && notificationPermission === "granted" && upcomingTasks.length > 0) {
       // Clear existing timeouts
       Object.values(taskNotificationTimeoutsIdsRef.current).forEach(id => {
         clearTimeout(id);
@@ -172,6 +177,10 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
       const formattedTime = reminderDate.toLocaleTimeString();
       console.log(`Notification scheduled for: ${formattedTime} (in ${Math.round(delay/1000/60)} minutes)`);
       
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
+      }
+      
       const id = window.setTimeout(() => {
         triggerNotification();
         scheduleReminderNotification();
@@ -218,6 +227,7 @@ const NotificationSettings = ({ settings, updateSetting }: NotificationSettingsP
         toast({
           title: "Task Reminder",
           description: `It's time for: ${task.title}`,
+          duration: 6000,
         });
       } catch (err) {
         console.error("Error triggering task notification:", err);

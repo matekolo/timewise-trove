@@ -7,7 +7,7 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 5
-const TOAST_REMOVE_DELAY = 5000 // Reduced from extremely long 1000000ms
+const TOAST_REMOVE_DELAY = 5000 // 5 seconds default removal time
 
 type ToasterToast = ToastProps & {
   id: string
@@ -56,8 +56,8 @@ interface State {
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
-// Track active notification contents to avoid duplicates
-const activeNotifications = new Set<string>();
+// Global cache to track active notification content across the entire app
+const globalNotificationCache = new Set<string>();
 
 const addToRemoveQueue = (toastId: string) => {
   if (toastTimeouts.has(toastId)) {
@@ -124,11 +124,11 @@ export const reducer = (state: State, action: Action): State => {
         }
       }
       
-      // When removing toast, also remove from activeNotifications
+      // When removing toast, also remove from global notification cache
       const toastToRemove = state.toasts.find(t => t.id === action.toastId);
       if (toastToRemove) {
         const notificationKey = `${toastToRemove.title}:${toastToRemove.description}`;
-        activeNotifications.delete(notificationKey);
+        globalNotificationCache.delete(notificationKey);
       }
       
       return {
@@ -152,16 +152,16 @@ function dispatch(action: Action) {
 type Toast = Omit<ToasterToast, "id">
 
 function toast({ ...props }: Toast) {
-  // Check if this notification is already active
+  // Check if this notification is already active using the global cache
   const notificationKey = `${props.title}:${props.description}`;
   
-  if (activeNotifications.has(notificationKey)) {
+  if (globalNotificationCache.has(notificationKey)) {
     console.log("Preventing duplicate notification:", notificationKey);
     return { id: "duplicate", dismiss: () => {}, update: () => {} };
   }
   
-  // Add to active notifications
-  activeNotifications.add(notificationKey);
+  // Add to global notification cache
+  globalNotificationCache.add(notificationKey);
   
   const id = genId()
 
@@ -182,8 +182,8 @@ function toast({ ...props }: Toast) {
       onOpenChange: (open) => {
         if (!open) {
           dismiss();
-          // When dismissed, also remove from activeNotifications
-          activeNotifications.delete(notificationKey);
+          // When dismissed, also remove from global notification cache
+          globalNotificationCache.delete(notificationKey);
         }
       },
     },
@@ -218,12 +218,12 @@ function useToast() {
 
 // Helper function to check if a notification exists
 function notificationExists(title: string, description: string): boolean {
-  return activeNotifications.has(`${title}:${description}`);
+  return globalNotificationCache.has(`${title}:${description}`);
 }
 
 // Clear all active notifications (useful for testing)
 function clearAllNotifications() {
-  activeNotifications.clear();
+  globalNotificationCache.clear();
 }
 
 export { useToast, toast, notificationExists, clearAllNotifications }
