@@ -44,7 +44,7 @@ function Calendar({
   }, [eventDates, props.modifiers]);
 
   // Custom day rendering to add event indicators
-  const renderDay = (day: Date, modifiers: Record<string, boolean> = {}) => {
+  const renderDay = (day: Date, dayModifiers: Record<string, boolean> = {}) => {
     const dateString = day.toISOString().split('T')[0];
     const hasEvent = eventDateMap.has(dateString);
     const eventTypes = eventDateMap.get(dateString) || [];
@@ -54,12 +54,12 @@ function Calendar({
         <div 
           className={cn(
             "h-9 w-9 p-0 font-normal aria-selected:opacity-100",
-            hasEvent && !modifiers.outside ? "after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-primary" : ""
+            hasEvent && !dayModifiers.outside ? "after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-primary" : ""
           )}
         >
           {day.getDate()}
         </div>
-        {hasEvent && !modifiers.outside && eventTypes.length > 0 && (
+        {hasEvent && !dayModifiers.outside && eventTypes.length > 0 && (
           <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
             {eventTypes.map((type, i) => (
               <div 
