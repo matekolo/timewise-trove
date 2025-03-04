@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Search, Plus, MoreHorizontal, Trash2, Edit } from "lucide-react";
@@ -24,11 +23,11 @@ interface Note {
 
 const Notes = () => {
   const colors = [
-    "bg-blue-100",
-    "bg-green-100",
-    "bg-yellow-100",
-    "bg-purple-100",
-    "bg-pink-100",
+    "bg-blue-100 dark:bg-blue-900/50",
+    "bg-green-100 dark:bg-green-900/50",
+    "bg-yellow-100 dark:bg-yellow-900/50", 
+    "bg-purple-100 dark:bg-purple-900/50",
+    "bg-pink-100 dark:bg-pink-900/50",
   ];
   
   const [newNote, setNewNote] = useState<Omit<Note, "id" | "created_at" | "user_id">>({
@@ -43,7 +42,6 @@ const Notes = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   
-  // Fetch notes from Supabase
   const fetchNotes = async (): Promise<Note[]> => {
     const { data, error } = await supabase
       .from("notes")
@@ -63,7 +61,6 @@ const Notes = () => {
     queryFn: fetchNotes,
   });
   
-  // Add a new note
   const addNoteMutation = useMutation({
     mutationFn: async (note: Omit<Note, "id" | "created_at">) => {
       const { data, error } = await supabase
@@ -95,7 +92,6 @@ const Notes = () => {
     },
   });
   
-  // Update a note
   const updateNoteMutation = useMutation({
     mutationFn: async ({ id, note }: { id: string; note: Omit<Note, "id" | "created_at" | "user_id"> }) => {
       const { data, error } = await supabase
@@ -128,7 +124,6 @@ const Notes = () => {
     },
   });
   
-  // Delete a note
   const deleteNoteMutation = useMutation({
     mutationFn: async (noteId: string) => {
       const { error } = await supabase
@@ -180,7 +175,6 @@ const Notes = () => {
       return;
     }
     
-    // Get current user
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -193,13 +187,11 @@ const Notes = () => {
     }
     
     if (isEditMode && editId !== null) {
-      // Update existing note
       updateNoteMutation.mutate({
         id: editId,
         note: newNote,
       });
     } else {
-      // Add new note with user_id included
       addNoteMutation.mutate({
         ...newNote,
         user_id: user.id
