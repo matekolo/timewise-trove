@@ -23,6 +23,7 @@ interface Task {
   created_at: string;
   category?: string;
   date?: string; // Optional date field that might be present
+  time?: string; // Optional time field
 }
 
 interface Event {
@@ -56,7 +57,7 @@ const Reports = () => {
         };
       case "week":
         return { 
-          start: startOfWeek(selectedDate, { weekStartsOn: 1 }), 
+          start: startOfWeek(selectedDate, { weekStartsOn: 1 }), // Monday
           end: endOfWeek(selectedDate, { weekStartsOn: 1 }) 
         };
       case "month":
@@ -141,15 +142,14 @@ const Reports = () => {
     },
   });
   
-  // Extract actual task date to use for filtering
+  // Extract actual task date to use for filtering - important function that needs to be fixed
   const getTaskDate = (task: Task): Date => {
-    // First try to use the date field if it exists (this should be the displayed date)
-    if (task.date) {
+    // Try to use the time field (display time) if it exists
+    if (task.time) {
       try {
-        // The date field might be in various formats
-        return parseISO(task.date);
+        return parseISO(task.time);
       } catch (e) {
-        console.error("Failed to parse task.date:", task.date, e);
+        console.error("Failed to parse task.time:", task.time, e);
       }
     }
     
@@ -180,12 +180,13 @@ const Reports = () => {
   
   // Generate productivity data for the chart
   const generateProductivityData = () => {
+    // Days order depends on weekStartsOn setting (1 = Monday)
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const result = [];
     
     // Get current week's dates based on selected date
     const selectedDate = date || new Date();
-    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }); // Monday
     
     console.log("\n--- GENERATING PRODUCTIVITY DATA ---");
     console.log("Selected date:", format(selectedDate, "yyyy-MM-dd"));
@@ -196,7 +197,7 @@ const Reports = () => {
     console.log("\nAll tasks in database with their effective dates:");
     tasks.forEach(task => {
       const taskDate = getTaskDate(task);
-      console.log(`Task: "${task.title}" | Created: ${task.created_at} | Display date: ${task.date || 'N/A'} | Effective date: ${format(taskDate, "yyyy-MM-dd")} | Completed: ${task.completed}`);
+      console.log(`Task: "${task.title}" | Created: ${task.created_at} | Time field: ${task.time || 'N/A'} | Effective date: ${format(taskDate, "yyyy-MM-dd")} | Completed: ${task.completed}`);
     });
     
     // Generate data for each day of the week
@@ -209,6 +210,12 @@ const Reports = () => {
       // Get tasks for this day using date comparison
       const dayTasks = tasks.filter(task => {
         const taskDate = getTaskDate(task);
+        // Get day of week for the task (0-6, with 0 being Sunday)
+        const taskDayOfWeek = taskDate.getDay();
+        // Convert to Monday-based index (0-6, with 0 being Monday)
+        const mondayBasedTaskDay = taskDayOfWeek === 0 ? 6 : taskDayOfWeek - 1;
+        
+        // Match by day of week index instead of exact date
         const taskInDay = isSameDay(taskDate, dayDate);
         
         if (taskInDay) {
