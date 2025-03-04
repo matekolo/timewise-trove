@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format, isAfter, isBefore, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval } from "date-fns";
+import { format, isAfter, isBefore, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays } from "date-fns";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,7 +76,7 @@ const Reports = () => {
   };
   
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
-    queryKey: ["tasks", "all"],
+    queryKey: ["tasks", "all", date, timeRange],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tasks")
@@ -153,23 +153,35 @@ const Reports = () => {
   const generateProductivityData = () => {
     const { start, end } = getDateRange();
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const result = [];
     
-    return days.map(day => {
+    // Start from the beginning of the week (Monday)
+    let currentDay = startOfWeek(start, { weekStartsOn: 1 });
+    
+    // Create data for each day of the week
+    for (let i = 0; i < 7; i++) {
+      const dayName = days[i];
+      const dayDate = addDays(currentDay, i);
+      
+      // Filter tasks for this specific day
       const dayTasks = filteredTasks.filter(task => {
         const taskDate = parseISO(task.created_at);
-        return format(taskDate, 'EEE') === day;
+        return isWithinInterval(taskDate, {
+          start: startOfDay(dayDate),
+          end: endOfDay(dayDate)
+        });
       });
       
-      if (dayTasks.length === 0) return { name: day, value: 0 };
-      
-      const completedCount = dayTasks.filter(task => task.completed).length;
-      const percentage = dayTasks.length > 0 ? Math.round((completedCount / dayTasks.length) * 100) : 0;
-      
-      return {
-        name: day,
-        value: percentage
-      };
-    });
+      if (dayTasks.length === 0) {
+        result.push({ name: dayName, value: 0 });
+      } else {
+        const completedCount = dayTasks.filter(task => task.completed).length;
+        const percentage = Math.round((completedCount / dayTasks.length) * 100);
+        result.push({ name: dayName, value: percentage });
+      }
+    }
+    
+    return result;
   };
   
   const productivityData = generateProductivityData();
@@ -215,6 +227,7 @@ const Reports = () => {
       completedTasks: completedTasksCount,
       totalTasks: totalTasksCount,
       categories: categoryData,
+      productivityByDay: productivityData,
       topHabits: topHabits.map(h => ({
         name: h.name,
         streak: h.streak,
