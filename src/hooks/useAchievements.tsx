@@ -136,51 +136,61 @@ export const useAchievements = () => {
   const badHabitsWithStreak = habits.filter((h: any) => h.type === 'bad' && h.streak >= 7).length;
   
   const calculateDailyStreak = (): number => {
-    const completedTasks = tasks.filter((task: any) => task.completed && task.created_at);
+    const completedTasks = tasks.filter((task: any) => task.completed);
     
     if (completedTasks.length === 0) return 0;
     
-    const tasksByDate: Record<string, boolean> = {};
+    const datesWithCompletedTasks = new Set<string>();
     
     completedTasks.forEach((task: any) => {
       const taskDate = task.time ? new Date(task.time) : new Date(task.created_at);
       const dateStr = taskDate.toISOString().split('T')[0];
-      tasksByDate[dateStr] = true;
+      datesWithCompletedTasks.add(dateStr);
     });
     
-    const datesWithTasks = Object.keys(tasksByDate).sort();
+    const sortedDates = Array.from(datesWithCompletedTasks).sort();
     
-    if (datesWithTasks.length === 0) return 0;
+    if (sortedDates.length === 0) return 0;
     
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
     
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    let maxStreak = 0;
+    let currentStreak = 0;
     
-    const mostRecentDateStr = datesWithTasks[datesWithTasks.length - 1];
-    
-    if (mostRecentDateStr !== todayStr && mostRecentDateStr !== yesterdayStr) {
-      return 0;
-    }
-    
-    let currentStreak = 1;
-    let currentDate = new Date(mostRecentDateStr);
-    
-    while (currentStreak < datesWithTasks.length) {
-      currentDate.setDate(currentDate.getDate() - 1);
-      const prevDateStr = currentDate.toISOString().split('T')[0];
+    for (let i = sortedDates.length - 1; i >= 0; i--) {
+      const currentDateStr = sortedDates[i];
       
-      if (tasksByDate[prevDateStr]) {
-        currentStreak++;
+      if (i === sortedDates.length - 1) {
+        currentStreak = 1;
+        
+        const mostRecentDate = new Date(currentDateStr);
+        const dayDiff = Math.floor((today.getTime() - mostRecentDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (dayDiff > 1 && currentDateStr !== todayStr) {
+          break;
+        }
       } else {
-        break;
+        const currentDate = new Date(currentDateStr);
+        const prevDateStr = sortedDates[i + 1];
+        const prevDate = new Date(prevDateStr);
+        
+        const daysBetween = Math.floor(
+          (prevDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        
+        if (daysBetween === 1) {
+          currentStreak++;
+        } else {
+          break;
+        }
       }
+      
+      maxStreak = Math.max(maxStreak, currentStreak);
     }
     
-    console.log("Calculated daily streak:", currentStreak, "from days:", datesWithTasks);
-    return currentStreak;
+    console.log("Calculated daily streak:", maxStreak, "from days:", sortedDates);
+    return maxStreak;
   };
   
   const dailyStreak = calculateDailyStreak();
