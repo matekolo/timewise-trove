@@ -11,6 +11,9 @@ export interface UserSettings {
   soundEnabled: boolean;
   achievementNotifications: boolean;
   showChampionBadge: boolean;
+  notifications: boolean;
+  soundEffects: boolean;
+  dailyReminderTime: string;
   // ... other settings 
 }
 
@@ -25,6 +28,9 @@ export const useUserSettings = () => {
     soundEnabled: true,
     achievementNotifications: true,
     showChampionBadge: false,
+    notifications: false,
+    soundEffects: false,
+    dailyReminderTime: '09:00',
   });
 
   // Load settings from localStorage on mount

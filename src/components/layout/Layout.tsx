@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,6 +18,7 @@ import {
   Settings as SettingsIcon
 } from "lucide-react";
 import WeatherWidget from "../ui/WeatherWidget";
+import UserAvatar from "../ui/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/components/ui/use-toast";
