@@ -79,12 +79,14 @@ const AchievementCard = ({
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              achievement.unlocked 
+              achievement.unlocked || achievement.claimed
                 ? 'bg-primary/20 text-primary' 
                 : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
             }`}>
-              {achievement.unlocked ? (
-                achievement.claimed ? <Check className="h-5 w-5" /> : <Trophy className="h-5 w-5" />
+              {achievement.claimed ? (
+                <Check className="h-5 w-5" />
+              ) : achievement.unlocked ? (
+                <Trophy className="h-5 w-5" />
               ) : (
                 <Lock className="h-4 w-4" />
               )}
