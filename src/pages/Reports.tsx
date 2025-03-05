@@ -371,6 +371,27 @@ const Reports = () => {
     const reportDate = date ? format(date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
     const reportTitle = `Productivity Report - ${format(new Date(reportDate), "MMMM d, yyyy")}`;
     
+    const currentProductivityData = generateProductivityData();
+    const currentCategoryData = generateCategoryData();
+    
+    let timeRangeText = "";
+    switch (timeRange) {
+      case "day":
+        timeRangeText = `for ${format(date || new Date(), "MMMM d, yyyy")}`;
+        break;
+      case "week":
+        const weekStart = startOfWeek(date || new Date(), { weekStartsOn: 1 });
+        const weekEnd = endOfWeek(date || new Date(), { weekStartsOn: 1 });
+        timeRangeText = `for week of ${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`;
+        break;
+      case "month":
+        timeRangeText = `for ${format(date || new Date(), "MMMM yyyy")}`;
+        break;
+      case "year":
+        timeRangeText = `for ${format(date || new Date(), "yyyy")}`;
+        break;
+    }
+    
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -382,8 +403,8 @@ const Reports = () => {
           h2 { color: #1F2937; margin-top: 30px; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
           .summary-box { background: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0; }
           .score { font-size: 48px; font-weight: bold; color: #10B981; }
-          .stats { display: flex; gap: 20px; margin: 20px 0; }
-          .stat { flex: 1; padding: 15px; background: #f3f4f6; border-radius: 8px; }
+          .stats { display: flex; flex-wrap: wrap; gap: 20px; margin: 20px 0; }
+          .stat { flex: 1; min-width: 120px; padding: 15px; background: #f3f4f6; border-radius: 8px; margin-bottom: 10px; }
           .stat-title { font-weight: bold; margin-bottom: 5px; }
           .categories, .habits { margin-top: 20px; }
           .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #6B7280; }
@@ -393,7 +414,7 @@ const Reports = () => {
         <h1>${reportTitle}</h1>
         
         <div class="summary-box">
-          <h2>Productivity Summary</h2>
+          <h2>Productivity Summary ${timeRangeText}</h2>
           <div class="score">${productivityScore}%</div>
           <p>Based on ${totalTasksCount} tasks (${completedTasksCount} completed)</p>
         </div>
@@ -401,7 +422,10 @@ const Reports = () => {
         <h2>Tasks by Category</h2>
         <div class="categories">
           <ul>
-            ${categoryData.map(cat => `<li><strong>${cat.name}:</strong> ${cat.value} tasks</li>`).join('')}
+            ${currentCategoryData.length > 0 
+              ? currentCategoryData.map(cat => `<li><strong>${cat.name}:</strong> ${cat.value} tasks</li>`).join('')
+              : '<li>No categorized tasks in this period</li>'
+            }
           </ul>
         </div>
         
@@ -413,12 +437,12 @@ const Reports = () => {
           }
         </div>
         
-        <h2>Daily Productivity</h2>
+        <h2>Productivity Breakdown</h2>
         <div class="stats">
-          ${productivityData.map(day => 
+          ${currentProductivityData.map(item => 
             `<div class="stat">
-              <div class="stat-title">${day.name}</div>
-              <div>${day.value}%</div>
+              <div class="stat-title">${item.name}</div>
+              <div>${item.value}%</div>
              </div>`
           ).join('')}
         </div>
@@ -435,7 +459,7 @@ const Reports = () => {
     
     const link = document.createElement('a');
     link.href = url;
-    link.download = `productivity-report-${format(new Date(), 'yyyy-MM-dd')}.html`;
+    link.download = `productivity-report-${format(date || new Date(), 'yyyy-MM-dd')}-${timeRange}.html`;
     document.body.appendChild(link);
     link.click();
     
@@ -444,7 +468,7 @@ const Reports = () => {
     
     toast({
       title: "Report downloaded",
-      description: "Your productivity report has been downloaded as HTML.",
+      description: `Your productivity report for the selected ${timeRange} has been downloaded as HTML.`,
     });
   };
 
