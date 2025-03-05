@@ -14,6 +14,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { format, subDays, startOfDay, parseISO } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { triggerHabitAchievementUpdate, triggerStreakAchievementUpdate } from "@/utils/achievementUtils";
 
 interface Habit {
   id: string;
@@ -213,6 +214,11 @@ const HabitTracker = () => {
       id: habit.id,
       history: newHistory,
       streak,
+    }, {
+      onSuccess: () => {
+        triggerHabitAchievementUpdate();
+        triggerStreakAchievementUpdate();
+      }
     });
   };
   

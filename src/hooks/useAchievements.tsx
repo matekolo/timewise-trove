@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Achievement, UserAchievement } from "@/types/achievementTypes";
 import { supabase } from "@/integrations/supabase/client";
@@ -255,6 +254,28 @@ export const useAchievements = () => {
       }
     });
   };
+
+  // Set up event listeners for updates that should trigger achievement refresh
+  useEffect(() => {
+    const handleUpdate = () => {
+      refreshAchievementData();
+    };
+    
+    // Listen for custom events from other parts of the application
+    window.addEventListener('task-updated', handleUpdate);
+    window.addEventListener('habit-updated', handleUpdate);
+    window.addEventListener('note-created', handleUpdate);
+    
+    // Add specific listener for streak updates
+    window.addEventListener('streak-updated', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('task-updated', handleUpdate);
+      window.removeEventListener('habit-updated', handleUpdate);
+      window.removeEventListener('note-created', handleUpdate);
+      window.removeEventListener('streak-updated', handleUpdate);
+    };
+  }, [refreshAchievementData]);
 
   return {
     achievements: enhancedAchievements,

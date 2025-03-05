@@ -1,3 +1,4 @@
+
 import { Achievement } from "@/types/achievementTypes";
 
 export const applyRewardEffect = (achievement: Achievement) => {
@@ -64,6 +65,11 @@ export const triggerHabitAchievementUpdate = () => {
 // This function triggers achievement updates when a note is created
 export const triggerNoteAchievementUpdate = () => {
   window.dispatchEvent(new CustomEvent('note-created'));
+};
+
+// This is a specific function just for streak updates to ensure they're properly tracked
+export const triggerStreakAchievementUpdate = () => {
+  window.dispatchEvent(new CustomEvent('streak-updated'));
 };
 
 export const calculateAchievementProgress = (

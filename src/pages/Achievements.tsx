@@ -34,11 +34,13 @@ const Achievements = () => {
     window.addEventListener('task-updated', handleUpdate);
     window.addEventListener('habit-updated', handleUpdate);
     window.addEventListener('note-created', handleUpdate);
+    window.addEventListener('streak-updated', handleUpdate);
     
     return () => {
       window.removeEventListener('task-updated', handleUpdate);
       window.removeEventListener('habit-updated', handleUpdate);
       window.removeEventListener('note-created', handleUpdate);
+      window.removeEventListener('streak-updated', handleUpdate);
     };
   }, [refreshAchievementData]);
   
