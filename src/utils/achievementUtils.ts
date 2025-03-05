@@ -1,95 +1,5 @@
-
 import { Achievement } from "@/types/achievementTypes";
-
-export const applyRewardEffect = (achievement: Achievement) => {
-  const currentSettings = localStorage.getItem('user-settings') ? 
-    JSON.parse(localStorage.getItem('user-settings') || '{}') : 
-    {};
-  
-  switch (achievement.id) {
-    case "early-bird":
-      localStorage.setItem('user-settings', JSON.stringify({
-        ...currentSettings,
-        themeColor: 'morning'
-      }));
-      break;
-    case "night-owl":
-      localStorage.setItem('user-settings', JSON.stringify({
-        ...currentSettings,
-        themeColor: 'night',
-        darkMode: true
-      }));
-      break;
-    case "zen-mind":
-      localStorage.setItem('user-settings', JSON.stringify({
-        ...currentSettings,
-        avatar: 'zen'
-      }));
-      break;
-    case "focus-master":
-      localStorage.setItem('user-settings', JSON.stringify({
-        ...currentSettings,
-        avatar: 'productivity'
-      }));
-      break;
-    case "streak-master":
-      localStorage.setItem('user-settings', JSON.stringify({
-        ...currentSettings,
-        themeColor: 'gold'
-      }));
-      break;
-    case "task-champion":
-      localStorage.setItem('user-settings', JSON.stringify({
-        ...currentSettings,
-        showChampionBadge: true
-      }));
-      break;
-    case "habit-breaker":
-      // Make sure we explicitly set customThemeColors to true
-      localStorage.setItem('user-settings', JSON.stringify({
-        ...currentSettings,
-        customThemeColors: true,
-        // Also set a default custom theme color to show the effect immediately
-        themeColor: 'teal'
-      }));
-      break;
-    case "consistency-king":
-      localStorage.setItem('user-settings', JSON.stringify({
-        ...currentSettings,
-        avatar: 'crown'
-      }));
-      break;
-    default:
-      break;
-  }
-  
-  // Trigger storage event to make sure other components update
-  window.dispatchEvent(new Event('settings-updated'));
-};
-
-// This function triggers achievement updates when a task is completed or modified
-export const triggerTaskAchievementUpdate = () => {
-  console.log("Triggering task achievement update");
-  window.dispatchEvent(new CustomEvent('task-updated'));
-};
-
-// This function triggers achievement updates when a habit streak is updated
-export const triggerHabitAchievementUpdate = () => {
-  console.log("Triggering habit achievement update");
-  window.dispatchEvent(new CustomEvent('habit-updated'));
-};
-
-// This function triggers achievement updates when a note is created
-export const triggerNoteAchievementUpdate = () => {
-  console.log("Triggering note achievement update");
-  window.dispatchEvent(new CustomEvent('note-created'));
-};
-
-// This is a specific function just for streak updates to ensure they're properly tracked
-export const triggerStreakAchievementUpdate = () => {
-  console.log("Triggering streak achievement update");
-  window.dispatchEvent(new CustomEvent('streak-updated'));
-};
+import { toast } from "@/components/ui/use-toast";
 
 export const calculateAchievementProgress = (
   taskCompletedCount: number,
@@ -98,8 +8,8 @@ export const calculateAchievementProgress = (
   longestStreak: number,
   notesCount: number,
   badHabitsWithStreak: number,
-  eveningTasksCount: number = 0,
-  dailyStreak: number = 0
+  eveningTasksCount: number,
+  dailyStreak: number
 ): Achievement[] => {
   const createAchievement = (
     id: string,
@@ -209,4 +119,69 @@ export const calculateAchievementProgress = (
       10
     )
   ];
+};
+
+export const applyRewardEffect = (achievement: Achievement) => {
+  const savedSettings = localStorage.getItem('user-settings');
+  let settings = savedSettings ? JSON.parse(savedSettings) : {};
+  
+  switch (achievement.id) {
+    case "early-bird":
+      settings.themeColor = "morning";
+      break;
+    case "night-owl":
+      settings.themeColor = "night";
+      settings.darkMode = true;
+      break;
+    case "zen-mind":
+      settings.avatar = "zen";
+      break;
+    case "focus-master":
+      settings.avatar = "productivity";
+      break;
+    case "streak-master":
+      settings.themeColor = "gold";
+      break;
+    case "task-champion":
+      settings.showChampionBadge = true;
+      break;
+    case "habit-breaker":
+      settings.customThemeColors = true;
+      break;
+    case "consistency-king":
+      settings.avatar = "crown";
+      break;
+  }
+  
+  localStorage.setItem('user-settings', JSON.stringify(settings));
+  
+  if (achievement.id === "night-owl") {
+    document.documentElement.classList.add('dark');
+  }
+  
+  if (["morning", "night", "gold"].includes(achievement.id)) {
+    document.documentElement.setAttribute('data-theme', settings.themeColor);
+  }
+  
+  window.dispatchEvent(new Event('settings-updated'));
+};
+
+export const triggerTaskAchievementUpdate = () => {
+  console.log("Triggering task achievement update");
+  window.dispatchEvent(new CustomEvent('task-updated'));
+};
+
+export const triggerHabitAchievementUpdate = () => {
+  console.log("Triggering habit achievement update");
+  window.dispatchEvent(new CustomEvent('habit-updated'));
+};
+
+export const triggerNoteAchievementUpdate = () => {
+  console.log("Triggering note achievement update");
+  window.dispatchEvent(new CustomEvent('note-created'));
+};
+
+export const triggerStreakAchievementUpdate = () => {
+  console.log("Triggering streak achievement update");
+  window.dispatchEvent(new CustomEvent('streak-updated'));
 };

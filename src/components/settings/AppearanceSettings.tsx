@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import UserAvatar from "@/components/ui/UserAvatar";
 import ChampionBadge from "@/components/ui/ChampionBadge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Achievement {
   id: string;
@@ -21,17 +23,51 @@ interface AppearanceSettingsProps {
   updateSetting: (key: keyof UserSettings, value: any) => void;
   displayName: string;
   achievements: Achievement[];
+  hasAchievement?: (id: string) => boolean;
+  refreshAchievements?: () => Promise<string[]>;
 }
 
 const AppearanceSettings = ({ 
   settings, 
   updateSetting, 
   displayName, 
-  achievements 
+  achievements,
+  hasAchievement,
+  refreshAchievements
 }: AppearanceSettingsProps) => {
   const { t } = useLanguage();
   const [customColor, setCustomColor] = useState(settings.customColor || "#3b82f6");
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [userAchievements, setUserAchievements] = useState<string[]>([]);
+  
+  // Load user achievements on component mount
+  useEffect(() => {
+    const loadAchievements = async () => {
+      if (refreshAchievements) {
+        await refreshAchievements();
+      } else {
+        // Fallback if refreshAchievements not provided
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data } = await supabase
+              .from("user_achievements")
+              .select("achievement_id")
+              .eq("user_id", user.id)
+              .eq("claimed", true);
+              
+            if (data) {
+              setUserAchievements(data.map(a => a.achievement_id));
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching achievements in AppearanceSettings:", error);
+        }
+      }
+    };
+    
+    loadAchievements();
+  }, [refreshAchievements]);
   
   const availableThemes = [
     { id: "blue", name: "Default Blue", requiresAchievement: false },
@@ -49,15 +85,22 @@ const AppearanceSettings = ({
     { id: "productivity", name: "Productivity Pro", requiresAchievement: true, achievement: "focus-master" },
     { id: "crown", name: "Royal Crown", requiresAchievement: true, achievement: "consistency-king" }
   ];
+
+  // Check if achievement is unlocked - using prop function or local state
+  const checkAchievement = (achievementId: string): boolean => {
+    if (hasAchievement) {
+      return hasAchievement(achievementId);
+    }
+    return userAchievements.includes(achievementId) || 
+           achievements.some(a => a.id === achievementId && a.unlocked);
+  };
   
   const isThemeAvailable = (themeId: string) => {
     const theme = availableThemes.find(t => t.id === themeId);
     if (!theme) return false;
     if (!theme.requiresAchievement) return true;
     
-    return achievements.some(a => 
-      a.id === theme.achievement && a.unlocked
-    );
+    return checkAchievement(theme.achievement);
   };
   
   const isAvatarAvailable = (avatarId: string) => {
@@ -65,15 +108,11 @@ const AppearanceSettings = ({
     if (!avatar) return false;
     if (!avatar.requiresAchievement) return true;
     
-    return achievements.some(a => 
-      a.id === avatar.achievement && a.unlocked
-    );
+    return checkAchievement(avatar.achievement);
   };
 
   const isChampionBadgeAvailable = () => {
-    return achievements.some(a => 
-      a.id === "task-champion" && a.unlocked
-    );
+    return checkAchievement("task-champion");
   };
   
   const convertHexToHSL = (hex: string): string => {
