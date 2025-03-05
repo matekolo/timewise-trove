@@ -1,13 +1,15 @@
+
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Lock, User, Award } from "lucide-react";
+import { Lock, User, Award, Palette } from "lucide-react";
 import Tile from "@/components/ui/Tile";
 import { UserSettings } from "@/hooks/useUserSettings";
 import { useLanguage } from "@/contexts/LanguageContext";
 import UserAvatar from "@/components/ui/UserAvatar";
 import ChampionBadge from "@/components/ui/ChampionBadge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Achievement {
   id: string;
@@ -30,6 +32,7 @@ const AppearanceSettings = ({
 }: AppearanceSettingsProps) => {
   const { t } = useLanguage();
   const [customColor, setCustomColor] = useState(settings.customColor || "#3b82f6");
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
   
   const availableThemes = [
     { id: "blue", name: "Default Blue", requiresAchievement: false },
@@ -84,6 +87,7 @@ const AppearanceSettings = ({
     setCustomColor(newColor);
     updateSetting('customColor', newColor);
     
+    // Apply the custom color immediately
     if (settings.themeColor === 'custom') {
       document.documentElement.style.setProperty('--primary-hsl', convertHexToHSL(newColor));
       document.documentElement.removeAttribute('data-theme');
@@ -151,94 +155,107 @@ const AppearanceSettings = ({
             <Label>{t("themeColor")}</Label>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
               {availableThemes.map(theme => (
-                <button
-                  key={theme.id}
-                  onClick={() => {
-                    if (isThemeAvailable(theme.id)) {
-                      updateSetting('themeColor', theme.id);
-                      
-                      if (theme.id === 'custom') {
+                theme.id === 'custom' && isCustomThemeAvailable() ? (
+                  <Popover 
+                    key={theme.id} 
+                    open={colorPickerOpen && settings.themeColor === 'custom'} 
+                    onOpenChange={(open) => {
+                      setColorPickerOpen(open);
+                      if (open) {
+                        updateSetting('themeColor', 'custom');
                         document.documentElement.style.setProperty('--primary-hsl', convertHexToHSL(customColor));
                         document.documentElement.removeAttribute('data-theme');
-                      } else {
-                        document.documentElement.style.removeProperty('--primary-hsl');
-                        document.documentElement.setAttribute('data-theme', theme.id);
                       }
-                    }
-                  }}
-                  className={`relative w-full aspect-square rounded-md border transition-all ${
-                    settings.themeColor === theme.id 
-                      ? 'ring-2 ring-primary ring-offset-2' 
-                      : isThemeAvailable(theme.id) ? 'hover:border-primary/50' : 'opacity-40 cursor-not-allowed'
-                  }`}
-                  disabled={!isThemeAvailable(theme.id)}
-                  title={
-                    !isThemeAvailable(theme.id) && theme.requiresAchievement
-                      ? `Unlock the ${theme.name} theme by completing the ${
-                          achievements.find(a => a.id === theme.achievement)?.name
-                        } achievement`
-                      : theme.name
-                  }
-                >
-                  <div 
-                    className={`w-full h-full rounded-md ${
-                      theme.id === 'blue' ? 'bg-blue-500' :
-                      theme.id === 'green' ? 'bg-green-500' :
-                      theme.id === 'purple' ? 'bg-purple-500' :
-                      theme.id === 'morning' ? 'bg-gradient-to-br from-orange-300 to-yellow-500' :
-                      theme.id === 'night' ? 'bg-gradient-to-br from-indigo-900 to-purple-900' :
-                      theme.id === 'gold' ? 'bg-gradient-to-br from-yellow-300 to-amber-500' :
-                      theme.id === 'custom' ? 'custom-color-preview' : 'bg-gray-500'
+                    }}
+                  >
+                    <PopoverTrigger asChild>
+                      <button
+                        className={`relative w-full aspect-square rounded-md border transition-all ${
+                          settings.themeColor === theme.id 
+                            ? 'ring-2 ring-primary ring-offset-2' 
+                            : 'hover:border-primary/50'
+                        }`}
+                        title="Custom Color - Click to choose any color"
+                      >
+                        <div 
+                          className="w-full h-full rounded-md flex items-center justify-center"
+                          style={{ backgroundColor: customColor }}
+                        >
+                          <Palette className="h-6 w-6 text-white drop-shadow-md" />
+                        </div>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-3">
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm">Choose Your Custom Color</h4>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-md" style={{ backgroundColor: customColor }}></div>
+                          <input 
+                            type="color" 
+                            value={customColor}
+                            onChange={handleCustomColorChange}
+                            className="w-full h-8"
+                          />
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <button
+                    key={theme.id}
+                    onClick={() => {
+                      if (isThemeAvailable(theme.id)) {
+                        updateSetting('themeColor', theme.id);
+                        
+                        if (theme.id === 'custom') {
+                          document.documentElement.style.setProperty('--primary-hsl', convertHexToHSL(customColor));
+                          document.documentElement.removeAttribute('data-theme');
+                          setColorPickerOpen(true);
+                        } else {
+                          document.documentElement.style.removeProperty('--primary-hsl');
+                          document.documentElement.setAttribute('data-theme', theme.id);
+                          setColorPickerOpen(false);
+                        }
+                      }
+                    }}
+                    className={`relative w-full aspect-square rounded-md border transition-all ${
+                      settings.themeColor === theme.id 
+                        ? 'ring-2 ring-primary ring-offset-2' 
+                        : isThemeAvailable(theme.id) ? 'hover:border-primary/50' : 'opacity-40 cursor-not-allowed'
                     }`}
-                    style={theme.id === 'custom' ? { backgroundColor: customColor } : {}}
-                  ></div>
-                  {!isThemeAvailable(theme.id) && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-md">
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  )}
-                </button>
+                    disabled={!isThemeAvailable(theme.id)}
+                    title={
+                      !isThemeAvailable(theme.id) && theme.requiresAchievement
+                        ? `Unlock the ${theme.name} theme by completing the ${
+                            achievements.find(a => a.id === theme.achievement)?.name
+                          } achievement`
+                        : theme.name
+                    }
+                  >
+                    <div 
+                      className={`w-full h-full rounded-md ${
+                        theme.id === 'blue' ? 'bg-blue-500' :
+                        theme.id === 'green' ? 'bg-green-500' :
+                        theme.id === 'purple' ? 'bg-purple-500' :
+                        theme.id === 'morning' ? 'bg-gradient-to-br from-orange-300 to-yellow-500' :
+                        theme.id === 'night' ? 'bg-gradient-to-br from-indigo-900 to-purple-900' :
+                        theme.id === 'gold' ? 'bg-gradient-to-br from-yellow-300 to-amber-500' :
+                        'bg-gray-500'
+                      }`}
+                    ></div>
+                    {!isThemeAvailable(theme.id) && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-md">
+                        <Lock className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </button>
+                )
               ))}
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               Some themes require achievements to unlock
             </p>
           </div>
-          
-          {isCustomThemeAvailable() && (
-            <div className="space-y-3 mt-6 border-t pt-4">
-              <Label>Custom Color</Label>
-              <p className="text-xs text-muted-foreground mb-2">
-                Unlocked by completing the Habit Breaker achievement
-              </p>
-              
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-md" style={{ backgroundColor: customColor }}></div>
-                <div className="flex-1">
-                  <input 
-                    type="color" 
-                    value={customColor}
-                    onChange={handleCustomColorChange}
-                    className="w-full h-10"
-                  />
-                </div>
-              </div>
-              
-              <p className="text-sm mt-2">
-                <button 
-                  onClick={() => {
-                    updateSetting('themeColor', 'custom');
-                    document.documentElement.style.setProperty('--primary-hsl', convertHexToHSL(customColor));
-                    document.documentElement.removeAttribute('data-theme');
-                  }}
-                  className="text-primary hover:underline"
-                  disabled={settings.themeColor === 'custom'}
-                >
-                  {settings.themeColor === 'custom' ? "Custom color is active" : "Apply this custom color"}
-                </button>
-              </p>
-            </div>
-          )}
           
           <div className="space-y-3">
             <Label>{t("language")}</Label>
