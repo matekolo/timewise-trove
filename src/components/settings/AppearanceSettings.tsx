@@ -29,6 +29,7 @@ const AppearanceSettings = ({
   achievements 
 }: AppearanceSettingsProps) => {
   const { t } = useLanguage();
+  const [customColor, setCustomColor] = useState(settings.customColor || "#3b82f6");
   
   const availableThemes = [
     { id: "blue", name: "Default Blue", requiresAchievement: false },
@@ -36,23 +37,14 @@ const AppearanceSettings = ({
     { id: "purple", name: "Royal Purple", requiresAchievement: false },
     { id: "morning", name: "Morning Sunrise", requiresAchievement: true, achievement: "early-bird" },
     { id: "night", name: "Night Owl", requiresAchievement: true, achievement: "night-owl" },
-    { id: "gold", name: "Gold Theme", requiresAchievement: true, achievement: "streak-master" }
+    { id: "gold", name: "Gold Theme", requiresAchievement: true, achievement: "streak-master" },
+    { id: "custom", name: "Custom Color", requiresAchievement: true, achievement: "habit-breaker" }
   ];
   
   const availableAvatars = [
     { id: "default", name: "Default", requiresAchievement: false },
     { id: "zen", name: "Zen Master", requiresAchievement: true, achievement: "zen-mind" },
     { id: "productivity", name: "Productivity Pro", requiresAchievement: true, achievement: "focus-master" }
-  ];
-  
-  // Custom theme colors that are unlocked with the Habit Breaker achievement
-  const customColors = [
-    { id: "teal", name: "Teal", color: "bg-teal-500" },
-    { id: "amber", name: "Amber", color: "bg-amber-500" },
-    { id: "rose", name: "Rose", color: "bg-rose-500" },
-    { id: "cyan", name: "Cyan", color: "bg-cyan-500" },
-    { id: "emerald", name: "Emerald", color: "bg-emerald-500" },
-    { id: "indigo", name: "Indigo", color: "bg-indigo-500" }
   ];
   
   const isThemeAvailable = (themeId: string) => {
@@ -81,11 +73,53 @@ const AppearanceSettings = ({
     );
   };
   
-  const isCustomThemeColorsAvailable = () => {
-    // Check both the achievement unlock status and the settings flag
-    return settings.customThemeColors || achievements.some(a => 
+  const isCustomThemeAvailable = () => {
+    return achievements.some(a => 
       a.id === "habit-breaker" && a.unlocked
     );
+  };
+  
+  const handleCustomColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newColor = e.target.value;
+    setCustomColor(newColor);
+    updateSetting('customColor', newColor);
+    
+    if (settings.themeColor === 'custom') {
+      document.documentElement.style.setProperty('--primary-hsl', convertHexToHSL(newColor));
+      document.documentElement.removeAttribute('data-theme');
+    }
+  };
+  
+  const convertHexToHSL = (hex: string): string => {
+    hex = hex.replace('#', '');
+    
+    const r = parseInt(hex.substring(0, 2), 16) / 255;
+    const g = parseInt(hex.substring(2, 4), 16) / 255;
+    const b = parseInt(hex.substring(4, 6), 16) / 255;
+    
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    
+    let h = 0, s = 0, l = (max + min) / 2;
+    
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+      
+      h *= 60;
+    }
+    
+    h = Math.round(h);
+    s = Math.round(s * 100);
+    l = Math.round(l * 100);
+    
+    return `${h} ${s}% ${l}%`;
   };
 
   return (
@@ -119,7 +153,19 @@ const AppearanceSettings = ({
               {availableThemes.map(theme => (
                 <button
                   key={theme.id}
-                  onClick={() => isThemeAvailable(theme.id) && updateSetting('themeColor', theme.id)}
+                  onClick={() => {
+                    if (isThemeAvailable(theme.id)) {
+                      updateSetting('themeColor', theme.id);
+                      
+                      if (theme.id === 'custom') {
+                        document.documentElement.style.setProperty('--primary-hsl', convertHexToHSL(customColor));
+                        document.documentElement.removeAttribute('data-theme');
+                      } else {
+                        document.documentElement.style.removeProperty('--primary-hsl');
+                        document.documentElement.setAttribute('data-theme', theme.id);
+                      }
+                    }
+                  }}
                   className={`relative w-full aspect-square rounded-md border transition-all ${
                     settings.themeColor === theme.id 
                       ? 'ring-2 ring-primary ring-offset-2' 
@@ -142,8 +188,9 @@ const AppearanceSettings = ({
                       theme.id === 'morning' ? 'bg-gradient-to-br from-orange-300 to-yellow-500' :
                       theme.id === 'night' ? 'bg-gradient-to-br from-indigo-900 to-purple-900' :
                       theme.id === 'gold' ? 'bg-gradient-to-br from-yellow-300 to-amber-500' :
-                      'bg-gray-500'
+                      theme.id === 'custom' ? 'custom-color-preview' : 'bg-gray-500'
                     }`}
+                    style={theme.id === 'custom' ? { backgroundColor: customColor } : {}}
                   ></div>
                   {!isThemeAvailable(theme.id) && (
                     <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-md">
@@ -158,29 +205,38 @@ const AppearanceSettings = ({
             </p>
           </div>
           
-          {/* Custom Theme Colors Section */}
-          {isCustomThemeColorsAvailable() && (
+          {isCustomThemeAvailable() && (
             <div className="space-y-3 mt-6 border-t pt-4">
-              <Label>Custom Theme Colors</Label>
+              <Label>Custom Color</Label>
               <p className="text-xs text-muted-foreground mb-2">
                 Unlocked by completing the Habit Breaker achievement
               </p>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-                {customColors.map(color => (
-                  <button
-                    key={color.id}
-                    onClick={() => updateSetting('themeColor', color.id)}
-                    className={`relative w-full aspect-square rounded-md border transition-all ${
-                      settings.themeColor === color.id 
-                        ? 'ring-2 ring-primary ring-offset-2' 
-                        : 'hover:border-primary/50'
-                    }`}
-                    title={color.name}
-                  >
-                    <div className={`w-full h-full rounded-md ${color.color}`}></div>
-                  </button>
-                ))}
+              
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-md" style={{ backgroundColor: customColor }}></div>
+                <div className="flex-1">
+                  <input 
+                    type="color" 
+                    value={customColor}
+                    onChange={handleCustomColorChange}
+                    className="w-full h-10"
+                  />
+                </div>
               </div>
+              
+              <p className="text-sm mt-2">
+                <button 
+                  onClick={() => {
+                    updateSetting('themeColor', 'custom');
+                    document.documentElement.style.setProperty('--primary-hsl', convertHexToHSL(customColor));
+                    document.documentElement.removeAttribute('data-theme');
+                  }}
+                  className="text-primary hover:underline"
+                  disabled={settings.themeColor === 'custom'}
+                >
+                  {settings.themeColor === 'custom' ? "Custom color is active" : "Apply this custom color"}
+                </button>
+              </p>
             </div>
           )}
           
@@ -247,7 +303,6 @@ const AppearanceSettings = ({
             Display badges next to your avatar to showcase your achievements
           </p>
           
-          {/* Champion Badge Option */}
           <div className="space-y-4 border-b pb-4">
             <div className="flex items-center justify-between">
               <div>
@@ -280,7 +335,6 @@ const AppearanceSettings = ({
             )}
           </div>
           
-          {/* Future badges will be added here */}
           <div className="bg-muted/20 p-4 rounded-md text-center">
             <p className="text-sm text-muted-foreground">More badges will be available as you complete achievements</p>
           </div>
