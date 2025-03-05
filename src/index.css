@@ -101,6 +101,37 @@
     --primary: 45 100% 50%;
     --primary-foreground: 0 0% 10%;
   }
+  
+  /* Custom theme colors for habit breaker achievement */
+  [data-theme="teal"] {
+    --primary: 175 84% 32%;
+    --primary-foreground: 210 40% 98%;
+  }
+  
+  [data-theme="amber"] {
+    --primary: 43 96% 58%;
+    --primary-foreground: 0 0% 10%;
+  }
+  
+  [data-theme="rose"] {
+    --primary: 330 81% 60%;
+    --primary-foreground: 210 40% 98%;
+  }
+  
+  [data-theme="cyan"] {
+    --primary: 180 100% 50%;
+    --primary-foreground: 210 40% 98%;
+  }
+  
+  [data-theme="emerald"] {
+    --primary: 152 76% 40%;
+    --primary-foreground: 210 40% 98%;
+  }
+  
+  [data-theme="indigo"] {
+    --primary: 231 48% 48%;
+    --primary-foreground: 210 40% 98%;
+  }
 
   * {
     @apply border-border;
