@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { Achievement, UserAchievement } from "@/types/achievementTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateAchievementProgress, applyRewardEffect } from "@/utils/achievementUtils";
@@ -8,7 +9,6 @@ import { parse, isAfter, isBefore, parseISO, format } from "date-fns";
 export const useAchievements = () => {
   const queryClient = useQueryClient();
 
-  // Fetch data needed for achievement tracking
   const { data: tasks = [], refetch: refetchTasks } = useQuery({
     queryKey: ["achievement-tasks"],
     queryFn: async () => {
@@ -49,7 +49,6 @@ export const useAchievements = () => {
   const { data: userAchievements = [], isLoading: loadingAchievements, refetch: refetchUserAchievements } = useQuery({
     queryKey: ["user-achievements"],
     queryFn: async () => {
-      // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -71,7 +70,6 @@ export const useAchievements = () => {
     },
   });
 
-  // Create a single function to refresh all achievement data
   const refreshAchievementData = async () => {
     await Promise.all([
       refetchTasks(), 
@@ -80,29 +78,22 @@ export const useAchievements = () => {
       refetchUserAchievements()
     ]);
     
-    // Also invalidate the derived achievement progress data
     queryClient.invalidateQueries({ queryKey: ["achievement-progress"] });
   };
 
-  // Calculate achievement progress metrics
   const taskCompletedCount = tasks.filter((task: any) => task.completed).length;
   
-  // Count early bird tasks (completed before 9 AM)
   const earlyBirdTasksCount = tasks.filter((task: any) => {
     if (!task.completed || !task.time) return false;
     
     try {
-      // Parse the time properly based on its format
       let taskDate = new Date(task.time);
       
-      // Extract the hours and minutes
       const hours = taskDate.getHours();
       const minutes = taskDate.getMinutes();
       
-      // Log for debugging
       console.log(`Task: ${task.title}, Time: ${task.time}, Hours: ${hours}:${minutes}`);
       
-      // Check if the time is before 9:00 AM
       return hours < 9;
     } catch (err) {
       console.error("Error parsing time for early bird task:", err, task);
@@ -112,18 +103,14 @@ export const useAchievements = () => {
   
   console.log("Early bird tasks count:", earlyBirdTasksCount);
   
-  // Count evening tasks (completed after 8 PM)
   const eveningTasksCount = tasks.filter((task: any) => {
     if (!task.completed || !task.time) return false;
     
     try {
-      // Parse the time properly
       let taskDate = new Date(task.time);
       
-      // Extract the hours
       const hours = taskDate.getHours();
       
-      // Check if the time is after 8:00 PM (20:00)
       return hours >= 20;
     } catch (err) {
       console.error("Error parsing time for night owl task:", err);
@@ -136,10 +123,8 @@ export const useAchievements = () => {
   const notesCount = notes.length;
   const badHabitsWithStreak = habits.filter((h: any) => h.type === 'bad' && h.streak >= 7).length;
   
-  // This would need to be implemented with actual data tracking
-  const dailyStreak = 0; 
+  const dailyStreak = 0;
 
-  // Get list of achievements with progress
   const achievementList = calculateAchievementProgress(
     taskCompletedCount,
     earlyBirdTasksCount,
@@ -151,7 +136,6 @@ export const useAchievements = () => {
     dailyStreak
   );
 
-  // Add 'claimed' property to all achievements based on userAchievements data
   const enhancedAchievements = achievementList.map(achievement => {
     const userAchievement = userAchievements.find(
       ua => ua.achievement_id === achievement.id
@@ -163,17 +147,14 @@ export const useAchievements = () => {
     };
   });
 
-  // Mutation for claiming achievements
   const claimAchievementMutation = useMutation({
     mutationFn: async (achievementId: string) => {
-      // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
         throw new Error("Not authenticated");
       }
       
-      // Check if the achievement is already claimed
       const existingAchievement = userAchievements.find(
         ua => ua.achievement_id === achievementId && ua.user_id === user.id
       );
@@ -183,7 +164,6 @@ export const useAchievements = () => {
       }
       
       if (existingAchievement) {
-        // Update existing achievement to claimed
         const { data, error } = await supabase
           .from("user_achievements")
           .update({ claimed: true })
@@ -194,7 +174,6 @@ export const useAchievements = () => {
         if (error) throw error;
         return data;
       } else {
-        // Create new achievement record
         const { data, error } = await supabase
           .from("user_achievements")
           .insert({
@@ -212,12 +191,10 @@ export const useAchievements = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["user-achievements"] });
-      // Trigger a settings update
       window.dispatchEvent(new Event('settings-updated'));
     }
   });
 
-  // Function for claiming rewards
   const claimReward = (achievement: Achievement) => {
     if (!achievement.unlocked) {
       toast({
@@ -255,18 +232,14 @@ export const useAchievements = () => {
     });
   };
 
-  // Set up event listeners for updates that should trigger achievement refresh
   useEffect(() => {
     const handleUpdate = () => {
       refreshAchievementData();
     };
     
-    // Listen for custom events from other parts of the application
     window.addEventListener('task-updated', handleUpdate);
     window.addEventListener('habit-updated', handleUpdate);
     window.addEventListener('note-created', handleUpdate);
-    
-    // Add specific listener for streak updates
     window.addEventListener('streak-updated', handleUpdate);
     
     return () => {
