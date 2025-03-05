@@ -1,19 +1,52 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Settings } from "lucide-react";
+import { Settings, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAchievements } from "@/hooks/useAchievements";
 import AchievementCard from "@/components/achievements/AchievementCard";
 import AchievementFilter from "@/components/achievements/AchievementFilter";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const Achievements = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const { t } = useLanguage();
-  const { achievements, claimReward, claimAchievementMutation, isLoading } = useAchievements();
+  const { 
+    achievements, 
+    claimReward, 
+    claimAchievementMutation, 
+    isLoading, 
+    refreshAchievementData 
+  } = useAchievements();
+  
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Set up event listeners for updates that should trigger achievement refresh
+  useEffect(() => {
+    const handleUpdate = () => {
+      refreshAchievementData();
+    };
+    
+    // Listen for custom events from other parts of the application
+    window.addEventListener('task-updated', handleUpdate);
+    window.addEventListener('habit-updated', handleUpdate);
+    window.addEventListener('note-created', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('task-updated', handleUpdate);
+      window.removeEventListener('habit-updated', handleUpdate);
+      window.removeEventListener('note-created', handleUpdate);
+    };
+  }, [refreshAchievementData]);
+  
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshAchievementData();
+    setTimeout(() => setIsRefreshing(false), 600); // Give some visual feedback
+  };
   
   const filteredAchievements = achievements.filter(achievement => {
     if (selectedCategory === "all") return true;
@@ -41,15 +74,37 @@ const Achievements = () => {
           </p>
         </motion.div>
         
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="flex items-center gap-2"
-          onClick={() => navigate("/settings")}
-        >
-          <Settings className="h-4 w-4" />
-          <span>{t("settings")}</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="h-9 w-9"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span className="sr-only">Refresh achievements</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Refresh achievements</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex items-center gap-2"
+            onClick={() => navigate("/settings")}
+          >
+            <Settings className="h-4 w-4" />
+            <span>{t("settings")}</span>
+          </Button>
+        </div>
       </div>
       
       <AchievementFilter 

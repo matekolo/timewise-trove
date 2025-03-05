@@ -1,4 +1,3 @@
-
 import { Achievement } from "@/types/achievementTypes";
 
 export const applyRewardEffect = (achievement: Achievement) => {
@@ -50,6 +49,21 @@ export const applyRewardEffect = (achievement: Achievement) => {
   
   // Trigger storage event to make sure other components update
   window.dispatchEvent(new Event('settings-updated'));
+};
+
+// This function triggers achievement updates when a task is completed or modified
+export const triggerTaskAchievementUpdate = () => {
+  window.dispatchEvent(new CustomEvent('task-updated'));
+};
+
+// This function triggers achievement updates when a habit streak is updated
+export const triggerHabitAchievementUpdate = () => {
+  window.dispatchEvent(new CustomEvent('habit-updated'));
+};
+
+// This function triggers achievement updates when a note is created
+export const triggerNoteAchievementUpdate = () => {
+  window.dispatchEvent(new CustomEvent('note-created'));
 };
 
 export const calculateAchievementProgress = (

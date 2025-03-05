@@ -10,7 +10,7 @@ export const useAchievements = () => {
   const queryClient = useQueryClient();
 
   // Fetch data needed for achievement tracking
-  const { data: tasks = [] } = useQuery({
+  const { data: tasks = [], refetch: refetchTasks } = useQuery({
     queryKey: ["achievement-tasks"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -23,7 +23,7 @@ export const useAchievements = () => {
     },
   });
   
-  const { data: habits = [] } = useQuery({
+  const { data: habits = [], refetch: refetchHabits } = useQuery({
     queryKey: ["achievement-habits"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -35,7 +35,7 @@ export const useAchievements = () => {
     },
   });
   
-  const { data: notes = [] } = useQuery({
+  const { data: notes = [], refetch: refetchNotes } = useQuery({
     queryKey: ["achievement-notes"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -47,7 +47,7 @@ export const useAchievements = () => {
     },
   });
 
-  const { data: userAchievements = [], isLoading: loadingAchievements } = useQuery({
+  const { data: userAchievements = [], isLoading: loadingAchievements, refetch: refetchUserAchievements } = useQuery({
     queryKey: ["user-achievements"],
     queryFn: async () => {
       // Get the current user
@@ -71,6 +71,19 @@ export const useAchievements = () => {
       return data as UserAchievement[];
     },
   });
+
+  // Create a single function to refresh all achievement data
+  const refreshAchievementData = async () => {
+    await Promise.all([
+      refetchTasks(), 
+      refetchHabits(), 
+      refetchNotes(), 
+      refetchUserAchievements()
+    ]);
+    
+    // Also invalidate the derived achievement progress data
+    queryClient.invalidateQueries({ queryKey: ["achievement-progress"] });
+  };
 
   // Calculate achievement progress metrics
   const taskCompletedCount = tasks.filter((task: any) => task.completed).length;
@@ -247,6 +260,7 @@ export const useAchievements = () => {
     achievements: enhancedAchievements,
     isLoading: loadingAchievements,
     claimReward,
-    claimAchievementMutation
+    claimAchievementMutation,
+    refreshAchievementData
   };
 };
