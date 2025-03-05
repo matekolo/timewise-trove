@@ -8,6 +8,7 @@ import { parse, isAfter, isBefore, parseISO, format } from "date-fns";
 
 export const useAchievements = () => {
   const queryClient = useQueryClient();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { data: tasks = [], refetch: refetchTasks } = useQuery({
     queryKey: ["achievement-tasks"],
@@ -71,14 +72,25 @@ export const useAchievements = () => {
   });
 
   const refreshAchievementData = async () => {
-    await Promise.all([
-      refetchTasks(), 
-      refetchHabits(), 
-      refetchNotes(), 
-      refetchUserAchievements()
-    ]);
+    setIsRefreshing(true);
     
-    queryClient.invalidateQueries({ queryKey: ["achievement-progress"] });
+    try {
+      await Promise.all([
+        refetchTasks(), 
+        refetchHabits(), 
+        refetchNotes(), 
+        refetchUserAchievements()
+      ]);
+      
+      queryClient.invalidateQueries({ queryKey: ["achievement-progress"] });
+      queryClient.invalidateQueries({ queryKey: ["habits"] });
+      
+      console.log("Achievement data refreshed successfully");
+    } catch (error) {
+      console.error("Error refreshing achievement data:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const taskCompletedCount = tasks.filter((task: any) => task.completed).length;
@@ -234,27 +246,34 @@ export const useAchievements = () => {
 
   useEffect(() => {
     const handleUpdate = () => {
+      console.log("Achievement update triggered by event");
+      refreshAchievementData();
+    };
+    
+    const handleStreakUpdate = () => {
+      console.log("Streak update event received");
       refreshAchievementData();
     };
     
     window.addEventListener('task-updated', handleUpdate);
     window.addEventListener('habit-updated', handleUpdate);
     window.addEventListener('note-created', handleUpdate);
-    window.addEventListener('streak-updated', handleUpdate);
+    window.addEventListener('streak-updated', handleStreakUpdate);
     
     return () => {
       window.removeEventListener('task-updated', handleUpdate);
       window.removeEventListener('habit-updated', handleUpdate);
       window.removeEventListener('note-created', handleUpdate);
-      window.removeEventListener('streak-updated', handleUpdate);
+      window.removeEventListener('streak-updated', handleStreakUpdate);
     };
-  }, [refreshAchievementData]);
+  }, []);
 
   return {
     achievements: enhancedAchievements,
-    isLoading: loadingAchievements,
+    isLoading: loadingAchievements || isRefreshing,
     claimReward,
     claimAchievementMutation,
-    refreshAchievementData
+    refreshAchievementData,
+    isRefreshing
   };
 };

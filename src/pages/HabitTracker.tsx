@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Plus, X, MoreHorizontal, Trash2, Edit, ThumbsUp, ThumbsDown, Check, Calendar } from "lucide-react";
@@ -216,8 +217,14 @@ const HabitTracker = () => {
       streak,
     }, {
       onSuccess: () => {
+        // Trigger both events separately to ensure they're properly handled
         triggerHabitAchievementUpdate();
-        triggerStreakAchievementUpdate();
+        
+        // Explicitly trigger streak update for the Streak Master achievement
+        setTimeout(() => {
+          triggerStreakAchievementUpdate();
+          console.log("Streak achievement update triggered:", streak);
+        }, 100);
       }
     });
   };

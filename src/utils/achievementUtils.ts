@@ -54,21 +54,25 @@ export const applyRewardEffect = (achievement: Achievement) => {
 
 // This function triggers achievement updates when a task is completed or modified
 export const triggerTaskAchievementUpdate = () => {
+  console.log("Triggering task achievement update");
   window.dispatchEvent(new CustomEvent('task-updated'));
 };
 
 // This function triggers achievement updates when a habit streak is updated
 export const triggerHabitAchievementUpdate = () => {
+  console.log("Triggering habit achievement update");
   window.dispatchEvent(new CustomEvent('habit-updated'));
 };
 
 // This function triggers achievement updates when a note is created
 export const triggerNoteAchievementUpdate = () => {
+  console.log("Triggering note achievement update");
   window.dispatchEvent(new CustomEvent('note-created'));
 };
 
 // This is a specific function just for streak updates to ensure they're properly tracked
 export const triggerStreakAchievementUpdate = () => {
+  console.log("Triggering streak achievement update");
   window.dispatchEvent(new CustomEvent('streak-updated'));
 };
 

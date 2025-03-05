@@ -19,35 +19,38 @@ const Achievements = () => {
     claimReward, 
     claimAchievementMutation, 
     isLoading, 
-    refreshAchievementData 
+    refreshAchievementData,
+    isRefreshing
   } = useAchievements();
-  
-  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Set up event listeners for updates that should trigger achievement refresh
   useEffect(() => {
     const handleUpdate = () => {
+      console.log("Achievements page received update event");
       refreshAchievementData();
     };
     
-    // Listen for custom events from other parts of the application
+    // Listen for all achievement-related events
     window.addEventListener('task-updated', handleUpdate);
     window.addEventListener('habit-updated', handleUpdate);
     window.addEventListener('note-created', handleUpdate);
     window.addEventListener('streak-updated', handleUpdate);
+    window.addEventListener('settings-updated', handleUpdate);
+    
+    // Initial refresh when component mounts
+    refreshAchievementData();
     
     return () => {
       window.removeEventListener('task-updated', handleUpdate);
       window.removeEventListener('habit-updated', handleUpdate);
       window.removeEventListener('note-created', handleUpdate);
       window.removeEventListener('streak-updated', handleUpdate);
+      window.removeEventListener('settings-updated', handleUpdate);
     };
   }, [refreshAchievementData]);
   
   const handleRefresh = async () => {
-    setIsRefreshing(true);
     await refreshAchievementData();
-    setTimeout(() => setIsRefreshing(false), 600); // Give some visual feedback
   };
   
   const filteredAchievements = achievements.filter(achievement => {
