@@ -44,6 +44,12 @@ export const applyRewardEffect = (achievement: Achievement) => {
         showChampionBadge: true
       }));
       break;
+    case "habit-breaker":
+      localStorage.setItem('user-settings', JSON.stringify({
+        ...currentSettings,
+        customThemeColors: true
+      }));
+      break;
     default:
       break;
   }

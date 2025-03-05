@@ -46,6 +46,16 @@ const AppearanceSettings = ({
     { id: "productivity", name: "Productivity Pro", requiresAchievement: true, achievement: "focus-master" }
   ];
   
+  // Custom theme colors that are unlocked with the Habit Breaker achievement
+  const customColors = [
+    { id: "teal", name: "Teal", color: "bg-teal-500" },
+    { id: "amber", name: "Amber", color: "bg-amber-500" },
+    { id: "rose", name: "Rose", color: "bg-rose-500" },
+    { id: "cyan", name: "Cyan", color: "bg-cyan-500" },
+    { id: "emerald", name: "Emerald", color: "bg-emerald-500" },
+    { id: "indigo", name: "Indigo", color: "bg-indigo-500" }
+  ];
+  
   const isThemeAvailable = (themeId: string) => {
     const theme = availableThemes.find(t => t.id === themeId);
     if (!theme) return false;
@@ -69,6 +79,12 @@ const AppearanceSettings = ({
   const isChampionBadgeAvailable = () => {
     return achievements.some(a => 
       a.id === "task-champion" && a.unlocked
+    );
+  };
+  
+  const isCustomThemeColorsAvailable = () => {
+    return achievements.some(a => 
+      a.id === "habit-breaker" && a.unlocked
     );
   };
 
@@ -141,6 +157,32 @@ const AppearanceSettings = ({
               Some themes require achievements to unlock
             </p>
           </div>
+          
+          {/* Custom Theme Colors Section */}
+          {isCustomThemeColorsAvailable() && (
+            <div className="space-y-3 mt-6 border-t pt-4">
+              <Label>Custom Theme Colors</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Unlocked by completing the Habit Breaker achievement
+              </p>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                {customColors.map(color => (
+                  <button
+                    key={color.id}
+                    onClick={() => updateSetting('themeColor', color.id)}
+                    className={`relative w-full aspect-square rounded-md border transition-all ${
+                      settings.themeColor === color.id 
+                        ? 'ring-2 ring-primary ring-offset-2' 
+                        : 'hover:border-primary/50'
+                    }`}
+                    title={color.name}
+                  >
+                    <div className={`w-full h-full rounded-md ${color.color}`}></div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           
           <div className="space-y-3">
             <Label>{t("language")}</Label>

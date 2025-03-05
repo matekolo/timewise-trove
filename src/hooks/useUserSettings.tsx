@@ -14,7 +14,7 @@ export interface UserSettings {
   notifications: boolean;
   soundEffects: boolean;
   dailyReminderTime: string;
-  // ... other settings 
+  customThemeColors: boolean;
 }
 
 export const useUserSettings = () => {
@@ -31,6 +31,7 @@ export const useUserSettings = () => {
     notifications: false,
     soundEffects: false,
     dailyReminderTime: '09:00',
+    customThemeColors: false,
   });
 
   // Load settings from localStorage on mount
