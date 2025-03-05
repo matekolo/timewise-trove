@@ -4,6 +4,7 @@ import { Achievement, UserAchievement } from "@/types/achievementTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateAchievementProgress, applyRewardEffect } from "@/utils/achievementUtils";
 import { toast } from "@/components/ui/use-toast";
+import { parse, isAfter, isBefore, parseISO } from "date-fns";
 
 export const useAchievements = () => {
   const queryClient = useQueryClient();
@@ -72,18 +73,59 @@ export const useAchievements = () => {
 
   // Calculate achievement progress metrics
   const taskCompletedCount = tasks.filter((task: any) => task.completed).length;
+  
+  // Count early bird tasks (completed before 9 AM)
+  const earlyBirdTasksCount = tasks.filter((task: any) => {
+    if (!task.completed || !task.time) return false;
+    
+    try {
+      const taskTime = task.time.includes(':') 
+        ? parse(task.time, 'HH:mm', new Date()) 
+        : parseISO(task.time);
+      
+      const morningCutoff = parse('09:00', 'HH:mm', new Date());
+      return isBefore(taskTime, morningCutoff);
+    } catch (err) {
+      console.error("Error parsing time for early bird task:", err);
+      return false;
+    }
+  }).length;
+  
+  // Count evening tasks (completed after 8 PM)
+  const eveningTasksCount = tasks.filter((task: any) => {
+    if (!task.completed || !task.time) return false;
+    
+    try {
+      const taskTime = task.time.includes(':') 
+        ? parse(task.time, 'HH:mm', new Date()) 
+        : parseISO(task.time);
+      
+      const eveningCutoff = parse('20:00', 'HH:mm', new Date());
+      return isAfter(taskTime, eveningCutoff);
+    } catch (err) {
+      console.error("Error parsing time for night owl task:", err);
+      return false;
+    }
+  }).length;
+  
   const highPriorityCompleted = tasks.filter((t: any) => t.priority === "high" && t.completed).length;
   const longestStreak = habits.reduce((max: number, habit: any) => Math.max(max, habit.streak || 0), 0);
   const notesCount = notes.length;
   const badHabitsWithStreak = habits.filter((h: any) => h.type === 'bad' && h.streak >= 7).length;
+  
+  // This would need to be implemented with actual data tracking
+  const dailyStreak = 0; 
 
   // Get list of achievements with progress
   const achievementList = calculateAchievementProgress(
     taskCompletedCount,
+    earlyBirdTasksCount,
     highPriorityCompleted,
     longestStreak,
     notesCount,
-    badHabitsWithStreak
+    badHabitsWithStreak,
+    eveningTasksCount,
+    dailyStreak
   );
 
   // Add 'claimed' property to all achievements based on userAchievements data

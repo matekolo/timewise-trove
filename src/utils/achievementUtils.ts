@@ -48,10 +48,13 @@ export const applyRewardEffect = (achievement: Achievement) => {
 
 export const calculateAchievementProgress = (
   taskCompletedCount: number,
+  earlyBirdTasksCount: number,
   highPriorityCompleted: number,
   longestStreak: number,
   notesCount: number,
-  badHabitsWithStreak: number
+  badHabitsWithStreak: number,
+  eveningTasksCount: number = 0,
+  dailyStreak: number = 0
 ): Achievement[] => {
   return [
     {
@@ -61,9 +64,9 @@ export const calculateAchievementProgress = (
       criteria: "Complete tasks early in the morning",
       reward: "Morning Theme",
       icon: "sun",
-      progressCount: taskCompletedCount,
-      progress: Math.min(taskCompletedCount / 5 * 100, 100),
-      unlocked: taskCompletedCount >= 5
+      progressCount: earlyBirdTasksCount,
+      progress: earlyBirdTasksCount >= 5 ? 100 : (earlyBirdTasksCount / 5 * 100),
+      unlocked: earlyBirdTasksCount >= 5
     },
     {
       id: "focus-master",
@@ -73,7 +76,7 @@ export const calculateAchievementProgress = (
       reward: "Productivity Avatar",
       icon: "target",
       progressCount: highPriorityCompleted,
-      progress: Math.min(highPriorityCompleted / 10 * 100, 100),
+      progress: highPriorityCompleted >= 10 ? 100 : (highPriorityCompleted / 10 * 100),
       unlocked: highPriorityCompleted >= 10
     },
     {
@@ -84,7 +87,7 @@ export const calculateAchievementProgress = (
       reward: "Champion Badge",
       icon: "award",
       progressCount: taskCompletedCount,
-      progress: Math.min(taskCompletedCount / 25 * 100, 100),
+      progress: taskCompletedCount >= 25 ? 100 : (taskCompletedCount / 25 * 100),
       unlocked: taskCompletedCount >= 25
     },
     {
@@ -95,7 +98,7 @@ export const calculateAchievementProgress = (
       reward: "Gold Theme",
       icon: "flame",
       progressCount: longestStreak,
-      progress: Math.min(longestStreak / 7 * 100, 100),
+      progress: longestStreak >= 7 ? 100 : (longestStreak / 7 * 100),
       unlocked: longestStreak >= 7
     },
     {
@@ -106,7 +109,7 @@ export const calculateAchievementProgress = (
       reward: "Zen Avatar",
       icon: "feather",
       progressCount: notesCount,
-      progress: Math.min(notesCount / 5 * 100, 100),
+      progress: notesCount >= 5 ? 100 : (notesCount / 5 * 100),
       unlocked: notesCount >= 5
     },
     {
@@ -117,7 +120,7 @@ export const calculateAchievementProgress = (
       reward: "Custom Theme Colors",
       icon: "scissors",
       progressCount: badHabitsWithStreak,
-      progress: Math.min(badHabitsWithStreak / 3 * 100, 100),
+      progress: badHabitsWithStreak >= 3 ? 100 : (badHabitsWithStreak / 3 * 100),
       unlocked: badHabitsWithStreak >= 3
     },
     {
@@ -127,9 +130,9 @@ export const calculateAchievementProgress = (
       criteria: "Complete at least one task every day for 14 days",
       reward: "Royal Crown Avatar",
       icon: "crown",
-      progressCount: 0, // This would need more complex tracking
-      progress: 30, // Placeholder
-      unlocked: false
+      progressCount: dailyStreak,
+      progress: dailyStreak >= 14 ? 100 : (dailyStreak / 14 * 100), 
+      unlocked: dailyStreak >= 14
     },
     {
       id: "night-owl",
@@ -138,9 +141,9 @@ export const calculateAchievementProgress = (
       criteria: "Complete tasks in the evening",
       reward: "Dark Theme",
       icon: "moon",
-      progressCount: 0, // This would need time-based tracking
-      progress: 70, // Placeholder
-      unlocked: false
+      progressCount: eveningTasksCount,
+      progress: eveningTasksCount >= 10 ? 100 : (eveningTasksCount / 10 * 100),
+      unlocked: eveningTasksCount >= 10
     }
   ];
 };

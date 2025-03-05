@@ -24,6 +24,21 @@ const AchievementCard = ({
 }: AchievementCardProps) => {
   const { t } = useLanguage();
 
+  // Helper to get milestone value based on achievement ID
+  const getMilestoneValue = (id: string) => {
+    switch (id) {
+      case "zen-mind": return 5;
+      case "focus-master": return 10;
+      case "streak-master": return 7;
+      case "task-champion": return 25;
+      case "habit-breaker": return 3;
+      case "early-bird": return 5;
+      case "night-owl": return 10;
+      case "consistency-king": return 14;
+      default: return 5;
+    }
+  };
+
   const getAchievementIcon = (iconName: string) => {
     switch (iconName) {
       case "sun": return <SunIcon className="h-5 w-5" />;
@@ -37,6 +52,15 @@ const AchievementCard = ({
       default: return <Star className="h-5 w-5" />;
     }
   };
+
+  // If the achievement is already claimed, show 100% progress
+  const displayProgressValue = achievement.claimed ? 100 : achievement.progress;
+  const milestone = getMilestoneValue(achievement.id);
+  const displayProgressCount = achievement.claimed 
+    ? milestone 
+    : achievement.progressCount !== undefined 
+      ? achievement.progressCount 
+      : Math.round(achievement.progress * milestone / 100);
 
   return (
     <motion.div
@@ -74,17 +98,10 @@ const AchievementCard = ({
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-muted-foreground">{t("progress")}</span>
                 <span>
-                  {achievement.progressCount !== undefined ? 
-                    `${achievement.progressCount} / ${achievement.id === 'zen-mind' ? '5' : 
-                       achievement.id === 'focus-master' ? '10' : 
-                       achievement.id === 'streak-master' ? '7' : 
-                       achievement.id === 'task-champion' ? '25' : 
-                       achievement.id === 'habit-breaker' ? '3' : 
-                       achievement.id === 'early-bird' ? '5' : '10'}`
-                    : `${Math.round(achievement.progress)}%`}
+                  {`${displayProgressCount} / ${milestone}`}
                 </span>
               </div>
-              <Progress value={achievement.progress} className="h-1.5" />
+              <Progress value={displayProgressValue} className="h-1.5" />
             </div>
             
             <div className="space-y-2">

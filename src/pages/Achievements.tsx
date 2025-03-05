@@ -13,14 +13,19 @@ const Achievements = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const { t } = useLanguage();
-  const { achievements, claimReward, claimAchievementMutation } = useAchievements();
+  const { achievements, claimReward, claimAchievementMutation, isLoading } = useAchievements();
   
   const filteredAchievements = achievements.filter(achievement => {
     if (selectedCategory === "all") return true;
     if (selectedCategory === "unlocked") return achievement.unlocked;
     if (selectedCategory === "locked") return !achievement.unlocked;
+    if (selectedCategory === "claimed") return achievement.claimed;
     return true;
   });
+
+  const unlockedCount = achievements.filter(a => a.unlocked).length;
+  const claimedCount = achievements.filter(a => a.claimed).length;
+  const totalCount = achievements.length;
 
   return (
     <div className="space-y-6">
@@ -31,7 +36,9 @@ const Achievements = () => {
           transition={{ duration: 0.5 }}
         >
           <h1 className="text-3xl font-bold">{t("achievements")}</h1>
-          <p className="text-muted-foreground">Track your progress and earn rewards</p>
+          <p className="text-muted-foreground">
+            Track your progress and earn rewards - {claimedCount}/{unlockedCount} claimed, {unlockedCount}/{totalCount} unlocked
+          </p>
         </motion.div>
         
         <Button 
@@ -50,18 +57,32 @@ const Achievements = () => {
         setSelectedCategory={setSelectedCategory}
       />
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredAchievements.map((achievement, index) => (
-          <AchievementCard
-            key={achievement.id}
-            achievement={achievement}
-            claimReward={claimReward}
-            isPending={claimAchievementMutation.isPending}
-            pendingId={claimAchievementMutation.variables}
-            index={index}
-          />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="h-64 rounded-lg animate-pulse bg-gray-200 dark:bg-gray-800" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredAchievements.length > 0 ? (
+            filteredAchievements.map((achievement, index) => (
+              <AchievementCard
+                key={achievement.id}
+                achievement={achievement}
+                claimReward={claimReward}
+                isPending={claimAchievementMutation.isPending}
+                pendingId={claimAchievementMutation.variables}
+                index={index}
+              />
+            ))
+          ) : (
+            <div className="col-span-3 text-center py-10">
+              <p className="text-lg text-muted-foreground">No achievements found in this category</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
