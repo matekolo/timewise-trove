@@ -41,7 +41,7 @@ export const applyRewardEffect = (achievement: Achievement) => {
     case "task-champion":
       localStorage.setItem('user-settings', JSON.stringify({
         ...currentSettings,
-        avatar: 'champion'
+        showChampionBadge: true
       }));
       break;
     default:

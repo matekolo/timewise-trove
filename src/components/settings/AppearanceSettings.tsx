@@ -42,8 +42,7 @@ const AppearanceSettings = ({
   const availableAvatars = [
     { id: "default", name: "Default", requiresAchievement: false },
     { id: "zen", name: "Zen Master", requiresAchievement: true, achievement: "zen-mind" },
-    { id: "productivity", name: "Productivity Pro", requiresAchievement: true, achievement: "focus-master" },
-    { id: "champion", name: "Champion", requiresAchievement: true, achievement: "task-champion" }
+    { id: "productivity", name: "Productivity Pro", requiresAchievement: true, achievement: "focus-master" }
   ];
   
   const isThemeAvailable = (themeId: string) => {
@@ -66,6 +65,12 @@ const AppearanceSettings = ({
     );
   };
 
+  const isChampionBadgeAvailable = () => {
+    return achievements.some(a => 
+      a.id === "task-champion" && a.unlocked
+    );
+  };
+
   return (
     <div className="space-y-6">
       <Tile title="Theme Settings">
@@ -82,7 +87,6 @@ const AppearanceSettings = ({
               checked={settings.darkMode}
               onCheckedChange={(checked) => {
                 updateSetting('darkMode', checked);
-                // Immediately apply the dark mode change to ensure it persists across reloads
                 if (checked) {
                   document.documentElement.classList.add('dark');
                 } else {
@@ -179,7 +183,6 @@ const AppearanceSettings = ({
                   {avatar.id === 'default' && <User className="h-8 w-8 text-primary/60" />}
                   {avatar.id === 'zen' && <div className="text-2xl">🧘</div>}
                   {avatar.id === 'productivity' && <div className="text-2xl">⚡</div>}
-                  {avatar.id === 'champion' && <Award className="h-8 w-8 text-primary/60" />}
                 </div>
                 {!isAvatarAvailable(avatar.id) && (
                   <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-full">
@@ -203,15 +206,48 @@ const AppearanceSettings = ({
                   settings.avatar === 'default' ? 'Default Avatar' :
                   settings.avatar === 'zen' ? 'Zen Master' : 
                   settings.avatar === 'productivity' ? 'Productivity Pro' :
-                  settings.avatar === 'champion' ? 'Champion' :
                   'Custom Avatar'
                 }</p>
-                {settings.avatar === 'champion' && (
+                {settings.showChampionBadge && (
                   <ChampionBadge className="mt-1" />
                 )}
               </div>
             </div>
           </div>
+        </div>
+      </Tile>
+      
+      <Tile title="Badges">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium">Champion Badge</h3>
+              <p className="text-xs text-muted-foreground">Show your Champion badge next to your avatar</p>
+            </div>
+            
+            <Switch
+              checked={settings.showChampionBadge || false}
+              onCheckedChange={(checked) => updateSetting('showChampionBadge', checked)}
+              disabled={!isChampionBadgeAvailable()}
+            />
+          </div>
+          
+          {!isChampionBadgeAvailable() && (
+            <div className="bg-muted/40 p-3 rounded-md flex items-center text-sm">
+              <Lock className="h-4 w-4 mr-2 text-muted-foreground" />
+              <span className="text-muted-foreground">Complete the Task Champion achievement to unlock</span>
+            </div>
+          )}
+          
+          {isChampionBadgeAvailable() && (
+            <div className="bg-muted/40 p-3 rounded-md">
+              <div className="flex items-center gap-2 mb-2">
+                <ChampionBadge />
+                <span className="text-sm font-medium">Preview</span>
+              </div>
+              <p className="text-xs text-muted-foreground">This badge will appear next to your avatar in the application</p>
+            </div>
+          )}
         </div>
       </Tile>
     </div>

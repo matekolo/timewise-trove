@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -42,7 +41,6 @@ const Layout = () => {
         setIsAuthenticated(!!session);
         
         if (user) {
-          // Get user profile/metadata
           setUserProfile({
             name: user.user_metadata?.name || user.email?.split('@')[0] || "",
             email: user.email
@@ -62,7 +60,6 @@ const Layout = () => {
         setIsAuthenticated(!!session);
         
         if (session?.user) {
-          // Update user profile on auth change
           setUserProfile({
             name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || "",
             email: session.user.email
@@ -71,13 +68,11 @@ const Layout = () => {
       }
     );
     
-    // Get user settings from localStorage
     const savedSettings = localStorage.getItem('user-settings');
     if (savedSettings) {
       setUserSettings(JSON.parse(savedSettings));
     }
     
-    // Add event listener for settings changes
     const handleStorageChange = () => {
       const updatedSettings = localStorage.getItem('user-settings');
       if (updatedSettings) {
@@ -107,7 +102,6 @@ const Layout = () => {
     };
   }, [navigate]);
 
-  // Listen for changes to user settings in localStorage
   useEffect(() => {
     const checkSettings = () => {
       const savedSettings = localStorage.getItem('user-settings');
@@ -116,7 +110,6 @@ const Layout = () => {
       }
     };
     
-    // Check for settings every second (to catch changes made in other components)
     const interval = setInterval(checkSettings, 1000);
     
     return () => clearInterval(interval);
@@ -266,11 +259,7 @@ const Layout = () => {
               <span className="absolute top-0 right-0 h-2 w-2 bg-primary rounded-full"></span>
             </Button>
             
-            <Avatar className="h-8 w-8 border border-primary/20">
-              <AvatarFallback className="bg-primary/10 text-primary">
-                {getAvatarContent()}
-              </AvatarFallback>
-            </Avatar>
+            <UserAvatar showDisplayName={true} />
             
             <Button 
               variant="ghost" 
