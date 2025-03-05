@@ -106,6 +106,13 @@ const AppearanceSettings = ({
     
     return `${h} ${s}% ${l}%`;
   };
+  
+  const handleCustomColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newColor = e.target.value;
+    setCustomColor(newColor);
+    updateSetting('customColor', newColor);
+    document.documentElement.style.setProperty('--primary-hsl', convertHexToHSL(newColor));
+  };
 
   return (
     <div className="space-y-6">
@@ -136,7 +143,7 @@ const AppearanceSettings = ({
             <Label>{t("themeColor")}</Label>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
               {availableThemes.map(theme => (
-                theme.id === 'custom' && isCustomThemeAvailable() ? (
+                theme.id === 'custom' && isThemeAvailable(theme.id) ? (
                   <Popover 
                     key={theme.id} 
                     open={colorPickerOpen && settings.themeColor === 'custom'} 
