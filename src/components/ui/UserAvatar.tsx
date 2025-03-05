@@ -1,7 +1,7 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
-import { User } from "lucide-react";
+import { User, Award } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface UserAvatarProps {
@@ -77,6 +77,11 @@ const UserAvatar = ({ size = "md", className = "" }: UserAvatarProps) => {
       {avatar === "productivity" && (
         <AvatarFallback className="bg-primary/10 text-lg">
           ⚡
+        </AvatarFallback>
+      )}
+      {avatar === "champion" && (
+        <AvatarFallback className="bg-primary/10">
+          <Award className="h-5 w-5 text-primary/60" />
         </AvatarFallback>
       )}
       <AvatarImage src="" alt={displayName} />

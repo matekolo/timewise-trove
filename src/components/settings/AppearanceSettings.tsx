@@ -1,13 +1,13 @@
-
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Lock, User } from "lucide-react";
+import { Lock, User, Award } from "lucide-react";
 import Tile from "@/components/ui/Tile";
 import { UserSettings } from "@/hooks/useUserSettings";
 import { useLanguage } from "@/contexts/LanguageContext";
 import UserAvatar from "@/components/ui/UserAvatar";
+import ChampionBadge from "@/components/ui/ChampionBadge";
 
 interface Achievement {
   id: string;
@@ -42,7 +42,8 @@ const AppearanceSettings = ({
   const availableAvatars = [
     { id: "default", name: "Default", requiresAchievement: false },
     { id: "zen", name: "Zen Master", requiresAchievement: true, achievement: "zen-mind" },
-    { id: "productivity", name: "Productivity Pro", requiresAchievement: true, achievement: "focus-master" }
+    { id: "productivity", name: "Productivity Pro", requiresAchievement: true, achievement: "focus-master" },
+    { id: "champion", name: "Champion", requiresAchievement: true, achievement: "task-champion" }
   ];
   
   const isThemeAvailable = (themeId: string) => {
@@ -178,6 +179,7 @@ const AppearanceSettings = ({
                   {avatar.id === 'default' && <User className="h-8 w-8 text-primary/60" />}
                   {avatar.id === 'zen' && <div className="text-2xl">🧘</div>}
                   {avatar.id === 'productivity' && <div className="text-2xl">⚡</div>}
+                  {avatar.id === 'champion' && <Award className="h-8 w-8 text-primary/60" />}
                 </div>
                 {!isAvatarAvailable(avatar.id) && (
                   <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-full">
@@ -200,9 +202,13 @@ const AppearanceSettings = ({
                 <p className="text-xs text-muted-foreground">{
                   settings.avatar === 'default' ? 'Default Avatar' :
                   settings.avatar === 'zen' ? 'Zen Master' : 
-                  settings.avatar === 'productivity' ? 'Productivity Pro' : 
+                  settings.avatar === 'productivity' ? 'Productivity Pro' :
+                  settings.avatar === 'champion' ? 'Champion' :
                   'Custom Avatar'
                 }</p>
+                {settings.avatar === 'champion' && (
+                  <ChampionBadge className="mt-1" />
+                )}
               </div>
             </div>
           </div>
