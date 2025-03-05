@@ -15,6 +15,7 @@ const UserAvatar = ({ size = "md", className = "", showDisplayName = false }: Us
   const [avatar, setAvatar] = useState<string>("default");
   const [displayName, setDisplayName] = useState<string>("");
   const [showChampionBadge, setShowChampionBadge] = useState<boolean>(false);
+  const [hasChampionAchievement, setHasChampionAchievement] = useState<boolean>(false);
   
   // Calculate size in pixels
   const sizeInPx = size === "sm" ? "32px" : size === "md" ? "40px" : "48px";
@@ -38,6 +39,22 @@ const UserAvatar = ({ size = "md", className = "", showDisplayName = false }: Us
         if (user) {
           const name = user.user_metadata?.name || user.email?.split('@')[0] || "";
           setDisplayName(name);
+          
+          // Check if user has the champion achievement
+          const { data: userAchievements, error } = await supabase
+            .from("user_achievements")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("achievement_id", "task-champion")
+            .eq("claimed", true);
+            
+          if (!error && userAchievements && userAchievements.length > 0) {
+            setHasChampionAchievement(true);
+          } else {
+            setHasChampionAchievement(false);
+            // If user doesn't have achievement, force showChampionBadge to false
+            setShowChampionBadge(false);
+          }
         }
       } catch (error) {
         console.error("Error loading avatar:", error);
@@ -54,7 +71,12 @@ const UserAvatar = ({ size = "md", className = "", showDisplayName = false }: Us
         if (parsedSettings.avatar) {
           setAvatar(parsedSettings.avatar);
         }
-        setShowChampionBadge(parsedSettings.showChampionBadge || false);
+        // Only show champion badge if user has the achievement
+        if (hasChampionAchievement) {
+          setShowChampionBadge(parsedSettings.showChampionBadge || false);
+        } else {
+          setShowChampionBadge(false);
+        }
       }
     };
     
@@ -65,7 +87,7 @@ const UserAvatar = ({ size = "md", className = "", showDisplayName = false }: Us
       window.removeEventListener('storage', handleSettingsUpdate);
       window.removeEventListener('settings-updated', handleSettingsUpdate);
     };
-  }, []);
+  }, [hasChampionAchievement]);
   
   return (
     <div className={`flex items-center gap-2 ${className}`}>
@@ -88,12 +110,12 @@ const UserAvatar = ({ size = "md", className = "", showDisplayName = false }: Us
         <AvatarImage src="" alt={displayName} />
       </Avatar>
 
-      {(showDisplayName || showChampionBadge) && (
+      {(showDisplayName || (showChampionBadge && hasChampionAchievement)) && (
         <div className="flex flex-col items-start">
           {showDisplayName && (
             <span className="text-sm font-medium">{displayName}</span>
           )}
-          {showChampionBadge && (
+          {showChampionBadge && hasChampionAchievement && (
             <ChampionBadge className={showDisplayName ? "mt-1" : ""} />
           )}
         </div>

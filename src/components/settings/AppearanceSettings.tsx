@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -74,24 +73,6 @@ const AppearanceSettings = ({
     return achievements.some(a => 
       a.id === "task-champion" && a.unlocked
     );
-  };
-  
-  const isCustomThemeAvailable = () => {
-    return achievements.some(a => 
-      a.id === "habit-breaker" && a.unlocked
-    );
-  };
-  
-  const handleCustomColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newColor = e.target.value;
-    setCustomColor(newColor);
-    updateSetting('customColor', newColor);
-    
-    // Apply the custom color immediately
-    if (settings.themeColor === 'custom') {
-      document.documentElement.style.setProperty('--primary-hsl', convertHexToHSL(newColor));
-      document.documentElement.removeAttribute('data-theme');
-    }
   };
   
   const convertHexToHSL = (hex: string): string => {
@@ -328,8 +309,12 @@ const AppearanceSettings = ({
               </div>
               
               <Switch
-                checked={settings.showChampionBadge || false}
-                onCheckedChange={(checked) => updateSetting('showChampionBadge', checked)}
+                checked={isChampionBadgeAvailable() ? (settings.showChampionBadge || false) : false}
+                onCheckedChange={(checked) => {
+                  if (isChampionBadgeAvailable()) {
+                    updateSetting('showChampionBadge', checked);
+                  }
+                }}
                 disabled={!isChampionBadgeAvailable()}
               />
             </div>

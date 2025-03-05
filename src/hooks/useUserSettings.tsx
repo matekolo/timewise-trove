@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -74,6 +73,42 @@ export const useUserSettings = () => {
     return `${h} ${s}% ${l}%`;
   };
 
+  // Verify if user has champion achievement
+  const verifyChampionAchievement = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        const { data: userAchievements, error } = await supabase
+          .from("user_achievements")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("achievement_id", "task-champion")
+          .eq("claimed", true);
+          
+        // If user doesn't have the achievement, force showChampionBadge to false
+        if (error || !userAchievements || userAchievements.length === 0) {
+          setSettings(prev => ({
+            ...prev,
+            showChampionBadge: false
+          }));
+          
+          // Update localStorage too
+          const savedSettings = localStorage.getItem('user-settings');
+          if (savedSettings) {
+            const parsedSettings = JSON.parse(savedSettings);
+            localStorage.setItem('user-settings', JSON.stringify({
+              ...parsedSettings,
+              showChampionBadge: false
+            }));
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error verifying champion achievement:", error);
+    }
+  };
+
   // Load settings from localStorage on mount
   useEffect(() => {
     const savedSettings = localStorage.getItem('user-settings');
@@ -102,6 +137,9 @@ export const useUserSettings = () => {
           document.documentElement.style.removeProperty('--primary-hsl');
           document.documentElement.setAttribute('data-theme', parsedSettings.themeColor || 'blue');
         }
+        
+        // Verify if user has the champion achievement to prevent showing badge without achievement
+        verifyChampionAchievement();
       } catch (error) {
         console.error('Error parsing saved settings:', error);
       }
@@ -112,6 +150,12 @@ export const useUserSettings = () => {
   const updateSetting = (key: keyof UserSettings, value: any) => {
     setSettings(prev => {
       const newSettings = { ...prev, [key]: value };
+      
+      // Ensure champion badge can only be enabled if user has the achievement
+      if (key === 'showChampionBadge' && value === true) {
+        // This will be verified by the UI controls, but as a safety measure
+        verifyChampionAchievement();
+      }
       
       // Save to localStorage
       localStorage.setItem('user-settings', JSON.stringify(newSettings));
