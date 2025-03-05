@@ -45,9 +45,12 @@ export const applyRewardEffect = (achievement: Achievement) => {
       }));
       break;
     case "habit-breaker":
+      // Make sure we explicitly set customThemeColors to true
       localStorage.setItem('user-settings', JSON.stringify({
         ...currentSettings,
-        customThemeColors: true
+        customThemeColors: true,
+        // Also set a default custom theme color to show the effect immediately
+        themeColor: 'teal'
       }));
       break;
     default:

@@ -45,7 +45,8 @@ export const useSettingsAchievements = () => {
           { id: "zen-mind", name: "Zen Mind", reward: "Zen Avatar" },
           { id: "focus-master", name: "Focus Master", reward: "Productivity Avatar" },
           { id: "streak-master", name: "Streak Master", reward: "Gold Theme" },
-          { id: "task-champion", name: "Task Champion", reward: "Champion Badge" }
+          { id: "task-champion", name: "Task Champion", reward: "Champion Badge" },
+          { id: "habit-breaker", name: "Habit Breaker", reward: "Custom Theme Colors" }
         ];
         
         // Map achievements to unlocked status
@@ -66,6 +67,17 @@ export const useSettingsAchievements = () => {
     };
 
     fetchAchievements();
+    
+    // Listen for settings updates to refresh achievements
+    const handleSettingsUpdate = () => {
+      fetchAchievements();
+    };
+    
+    window.addEventListener('settings-updated', handleSettingsUpdate);
+    
+    return () => {
+      window.removeEventListener('settings-updated', handleSettingsUpdate);
+    };
   }, []);
 
   return { achievements, isLoading };

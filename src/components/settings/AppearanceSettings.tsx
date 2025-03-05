@@ -83,7 +83,8 @@ const AppearanceSettings = ({
   };
   
   const isCustomThemeColorsAvailable = () => {
-    return achievements.some(a => 
+    // Check both the achievement unlock status and the settings flag
+    return settings.customThemeColors || achievements.some(a => 
       a.id === "habit-breaker" && a.unlocked
     );
   };
