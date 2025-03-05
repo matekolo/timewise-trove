@@ -53,6 +53,12 @@ export const applyRewardEffect = (achievement: Achievement) => {
         themeColor: 'teal'
       }));
       break;
+    case "consistency-king":
+      localStorage.setItem('user-settings', JSON.stringify({
+        ...currentSettings,
+        avatar: 'crown'
+      }));
+      break;
     default:
       break;
   }

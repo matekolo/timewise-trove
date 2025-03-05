@@ -1,10 +1,11 @@
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { Achievement, UserAchievement } from "@/types/achievementTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateAchievementProgress, applyRewardEffect } from "@/utils/achievementUtils";
 import { toast } from "@/components/ui/use-toast";
-import { parse, isAfter, isBefore, parseISO, format } from "date-fns";
+import { parse, isAfter, isBefore, parseISO, format, subDays, isWithinInterval, startOfDay, endOfDay, differenceInDays } from "date-fns";
 
 export const useAchievements = () => {
   const queryClient = useQueryClient();
@@ -135,7 +136,57 @@ export const useAchievements = () => {
   const notesCount = notes.length;
   const badHabitsWithStreak = habits.filter((h: any) => h.type === 'bad' && h.streak >= 7).length;
   
-  const dailyStreak = 0;
+  // Calculate the daily streak for consecutive task completion
+  const calculateDailyStreak = (): number => {
+    // Sort completed tasks by creation date
+    const completedTasks = tasks
+      .filter((task: any) => task.completed && task.created_at)
+      .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    
+    if (completedTasks.length === 0) return 0;
+    
+    // Group tasks by date (ignoring time)
+    const tasksByDate = completedTasks.reduce((acc: Record<string, any[]>, task: any) => {
+      const dateStr = new Date(task.created_at).toISOString().split('T')[0];
+      if (!acc[dateStr]) {
+        acc[dateStr] = [];
+      }
+      acc[dateStr].push(task);
+      return acc;
+    }, {});
+    
+    // Convert to array of dates with completed tasks
+    const datesWithTasks = Object.keys(tasksByDate).sort();
+    
+    if (datesWithTasks.length === 0) return 0;
+    
+    // Check if the latest task was completed today or yesterday (to maintain the streak)
+    const latestDate = new Date(datesWithTasks[datesWithTasks.length - 1]);
+    const today = new Date();
+    const isRecentActivity = differenceInDays(today, latestDate) <= 1;
+    
+    if (!isRecentActivity) return 0;
+    
+    // Count consecutive days
+    let streak = 1; // Start with the most recent day
+    for (let i = datesWithTasks.length - 1; i > 0; i--) {
+      const currentDate = new Date(datesWithTasks[i]);
+      const previousDate = new Date(datesWithTasks[i - 1]);
+      
+      // If the days are consecutive (difference of 1 day)
+      if (differenceInDays(currentDate, previousDate) === 1) {
+        streak++;
+      } else {
+        // Break the streak if days are not consecutive
+        break;
+      }
+    }
+    
+    return streak;
+  };
+  
+  const dailyStreak = calculateDailyStreak();
+  console.log("Current daily streak:", dailyStreak);
 
   const achievementList = calculateAchievementProgress(
     taskCompletedCount,
