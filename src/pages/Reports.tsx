@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -175,22 +174,48 @@ const Reports = () => {
     }));
   
   const generateProductivityData = () => {
-    const { start: weekStart } = getDateRange();
-    let startDate = weekStart;
-    
-    // For day view, create a week centered on the selected day
-    if (timeRange === "day" && date) {
-      startDate = startOfWeek(date, { weekStartsOn: 1 });
-    }
-    
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const result = [];
-    
     console.log("\n--- GENERATING PRODUCTIVITY DATA ---");
     console.log("Selected date:", date ? format(date, "yyyy-MM-dd") : "None");
     console.log("Time range:", timeRange);
+    
+    if (timeRange === "day" && date) {
+      const dayName = format(date, "EEE");
+      console.log(`Day view: showing only ${dayName}`);
+      
+      const dayTasks = tasks.filter(task => {
+        try {
+          const taskDate = getTaskDate(task);
+          return isSameDay(taskDate, date);
+        } catch (error) {
+          console.error("Error processing task date:", task, error);
+          return false;
+        }
+      });
+      
+      console.log(`Total tasks for ${dayName}: ${dayTasks.length}`);
+      
+      let value = 0;
+      if (dayTasks.length > 0) {
+        const completedCount = dayTasks.filter(task => task.completed).length;
+        value = Math.round((completedCount / dayTasks.length) * 100);
+        console.log(`Completion: ${completedCount}/${dayTasks.length} = ${value}%`);
+      }
+      
+      return [{ name: dayName, value }];
+    }
+    
+    const { start: weekStart } = getDateRange();
+    let startDate = weekStart;
+    
+    if (timeRange !== "day") {
+      startDate = startOfWeek(date || new Date(), { weekStartsOn: 1 });
+    }
+    
     console.log("Week starting on:", format(startDate, "yyyy-MM-dd"));
     console.log("Total tasks in database:", tasks.length);
+    
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const result = [];
     
     for (let i = 0; i < 7; i++) {
       const dayDate = addDays(startDate, i);
