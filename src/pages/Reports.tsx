@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays, parseISO, isSameDay, subDays } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, isWithinInterval, addDays, parseISO, isSameDay, subDays, getWeeksInMonth, getDaysInMonth, getDate, getMonth, getYear, setDate, setMonth, startOfYear, getWeek, addMonths } from "date-fns";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -202,51 +202,135 @@ const Reports = () => {
       }
       
       return [{ name: dayName, value }];
-    }
-    
-    const { start: weekStart } = getDateRange();
-    let startDate = weekStart;
-    
-    if (timeRange !== "day") {
-      startDate = startOfWeek(date || new Date(), { weekStartsOn: 1 });
-    }
-    
-    console.log("Week starting on:", format(startDate, "yyyy-MM-dd"));
-    console.log("Total tasks in database:", tasks.length);
-    
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const result = [];
-    
-    for (let i = 0; i < 7; i++) {
-      const dayDate = addDays(startDate, i);
-      const dayName = days[i];
+    } else if (timeRange === "week" || !timeRange) {
+      const startDate = startOfWeek(date || new Date(), { weekStartsOn: 1 });
       
-      console.log(`\nProcessing ${dayName}, ${format(dayDate, "yyyy-MM-dd")}`);
+      console.log("Week starting on:", format(startDate, "yyyy-MM-dd"));
+      console.log("Total tasks in database:", tasks.length);
       
-      const dayTasks = tasks.filter(task => {
-        try {
-          const taskDate = getTaskDate(task);
-          return isSameDay(taskDate, dayDate);
-        } catch (error) {
-          console.error("Error processing task date:", task, error);
-          return false;
+      const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const result = [];
+      
+      for (let i = 0; i < 7; i++) {
+        const dayDate = addDays(startDate, i);
+        const dayName = days[i];
+        
+        console.log(`\nProcessing ${dayName}, ${format(dayDate, "yyyy-MM-dd")}`);
+        
+        const dayTasks = tasks.filter(task => {
+          try {
+            const taskDate = getTaskDate(task);
+            return isSameDay(taskDate, dayDate);
+          } catch (error) {
+            console.error("Error processing task date:", task, error);
+            return false;
+          }
+        });
+        
+        console.log(`  Total tasks for ${dayName}: ${dayTasks.length}`);
+        
+        if (dayTasks.length === 0) {
+          result.push({ name: dayName, value: 0 });
+        } else {
+          const completedCount = dayTasks.filter(task => task.completed).length;
+          const percentage = Math.round((completedCount / dayTasks.length) * 100);
+          console.log(`  Completion: ${completedCount}/${dayTasks.length} = ${percentage}%`);
+          result.push({ name: dayName, value: percentage });
         }
-      });
-      
-      console.log(`  Total tasks for ${dayName}: ${dayTasks.length}`);
-      
-      if (dayTasks.length === 0) {
-        result.push({ name: dayName, value: 0 });
-      } else {
-        const completedCount = dayTasks.filter(task => task.completed).length;
-        const percentage = Math.round((completedCount / dayTasks.length) * 100);
-        console.log(`  Completion: ${completedCount}/${dayTasks.length} = ${percentage}%`);
-        result.push({ name: dayName, value: percentage });
       }
+      
+      console.log("\nFinal productivity data:", result);
+      return result;
+    } else if (timeRange === "month" && date) {
+      const selectedDate = date || new Date();
+      const monthStart = startOfMonth(selectedDate);
+      const weeks = [];
+      
+      console.log("Month view starting on:", format(monthStart, "yyyy-MM-dd"));
+      
+      const numWeeks = Math.ceil(getDaysInMonth(selectedDate) / 7);
+      
+      for (let i = 0; i < numWeeks; i++) {
+        const weekStart = addDays(monthStart, i * 7);
+        const weekEnd = addDays(weekStart, 6);
+        
+        if (getMonth(weekStart) !== getMonth(selectedDate) && i > 0) continue;
+        
+        const weekLabel = `W${i + 1}`;
+        console.log(`\nProcessing ${weekLabel} (${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d")})`);
+        
+        const weekTasks = tasks.filter(task => {
+          try {
+            const taskDate = getTaskDate(task);
+            return isWithinInterval(taskDate, { start: weekStart, end: weekEnd }) && 
+                   getMonth(taskDate) === getMonth(selectedDate);
+          } catch (error) {
+            console.error("Error processing task date:", task, error);
+            return false;
+          }
+        });
+        
+        console.log(`  Total tasks for ${weekLabel}: ${weekTasks.length}`);
+        
+        if (weekTasks.length === 0) {
+          weeks.push({ name: weekLabel, value: 0 });
+        } else {
+          const completedCount = weekTasks.filter(task => task.completed).length;
+          const percentage = Math.round((completedCount / weekTasks.length) * 100);
+          console.log(`  Completion: ${completedCount}/${weekTasks.length} = ${percentage}%`);
+          weeks.push({ name: weekLabel, value: percentage });
+        }
+      }
+      
+      console.log("\nFinal monthly productivity data:", weeks);
+      return weeks;
+    } else if (timeRange === "year" && date) {
+      const selectedDate = date || new Date();
+      const yearStart = startOfYear(selectedDate);
+      const months = [];
+      
+      console.log("Year view starting on:", format(yearStart, "yyyy-MM-dd"));
+      
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      
+      for (let i = 0; i < 12; i++) {
+        const monthDate = addMonths(yearStart, i);
+        const monthName = monthNames[i];
+        const monthStartDate = startOfMonth(monthDate);
+        const monthEndDate = endOfMonth(monthDate);
+        
+        console.log(`\nProcessing ${monthName} ${getYear(selectedDate)}`);
+        
+        const monthTasks = tasks.filter(task => {
+          try {
+            const taskDate = getTaskDate(task);
+            return isWithinInterval(taskDate, { 
+              start: monthStartDate, 
+              end: monthEndDate 
+            });
+          } catch (error) {
+            console.error("Error processing task date:", task, error);
+            return false;
+          }
+        });
+        
+        console.log(`  Total tasks for ${monthName}: ${monthTasks.length}`);
+        
+        if (monthTasks.length === 0) {
+          months.push({ name: monthName, value: 0 });
+        } else {
+          const completedCount = monthTasks.filter(task => task.completed).length;
+          const percentage = Math.round((completedCount / monthTasks.length) * 100);
+          console.log(`  Completion: ${completedCount}/${monthTasks.length} = ${percentage}%`);
+          months.push({ name: monthName, value: percentage });
+        }
+      }
+      
+      console.log("\nFinal yearly productivity data:", months);
+      return months;
     }
     
-    console.log("\nFinal productivity data:", result);
-    return result;
+    return [];
   };
   
   const productivityData = generateProductivityData();
