@@ -53,10 +53,14 @@ const AchievementCard = ({
     }
   };
 
-  // If the achievement is already claimed, show 100% progress
-  const displayProgressValue = achievement.claimed ? 100 : achievement.progress;
+  // Calculate the correct progress value for display
   const milestone = getMilestoneValue(achievement.id);
-  const displayProgressCount = achievement.claimed 
+  
+  // If unlocked or claimed, always show 100% progress
+  const displayProgressValue = achievement.unlocked || achievement.claimed ? 100 : achievement.progress;
+  
+  // Show correct count value (if unlocked, show the milestone value)
+  const displayProgressCount = achievement.unlocked || achievement.claimed 
     ? milestone 
     : achievement.progressCount !== undefined 
       ? achievement.progressCount 

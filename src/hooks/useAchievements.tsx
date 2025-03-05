@@ -4,7 +4,7 @@ import { Achievement, UserAchievement } from "@/types/achievementTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateAchievementProgress, applyRewardEffect } from "@/utils/achievementUtils";
 import { toast } from "@/components/ui/use-toast";
-import { parse, isAfter, isBefore, parseISO } from "date-fns";
+import { parse, isAfter, isBefore, parseISO, format } from "date-fns";
 
 export const useAchievements = () => {
   const queryClient = useQueryClient();
@@ -18,6 +18,7 @@ export const useAchievements = () => {
         .select("*");
       
       if (error) throw error;
+      console.log("All tasks:", data);
       return data;
     },
   });
@@ -79,29 +80,39 @@ export const useAchievements = () => {
     if (!task.completed || !task.time) return false;
     
     try {
-      const taskTime = task.time.includes(':') 
-        ? parse(task.time, 'HH:mm', new Date()) 
-        : parseISO(task.time);
+      // Parse the time properly based on its format
+      let taskDate = new Date(task.time);
       
-      const morningCutoff = parse('09:00', 'HH:mm', new Date());
-      return isBefore(taskTime, morningCutoff);
+      // Extract the hours and minutes
+      const hours = taskDate.getHours();
+      const minutes = taskDate.getMinutes();
+      
+      // Log for debugging
+      console.log(`Task: ${task.title}, Time: ${task.time}, Hours: ${hours}:${minutes}`);
+      
+      // Check if the time is before 9:00 AM
+      return hours < 9;
     } catch (err) {
-      console.error("Error parsing time for early bird task:", err);
+      console.error("Error parsing time for early bird task:", err, task);
       return false;
     }
   }).length;
+  
+  console.log("Early bird tasks count:", earlyBirdTasksCount);
   
   // Count evening tasks (completed after 8 PM)
   const eveningTasksCount = tasks.filter((task: any) => {
     if (!task.completed || !task.time) return false;
     
     try {
-      const taskTime = task.time.includes(':') 
-        ? parse(task.time, 'HH:mm', new Date()) 
-        : parseISO(task.time);
+      // Parse the time properly
+      let taskDate = new Date(task.time);
       
-      const eveningCutoff = parse('20:00', 'HH:mm', new Date());
-      return isAfter(taskTime, eveningCutoff);
+      // Extract the hours
+      const hours = taskDate.getHours();
+      
+      // Check if the time is after 8:00 PM (20:00)
+      return hours >= 20;
     } catch (err) {
       console.error("Error parsing time for night owl task:", err);
       return false;

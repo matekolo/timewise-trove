@@ -56,94 +56,112 @@ export const calculateAchievementProgress = (
   eveningTasksCount: number = 0,
   dailyStreak: number = 0
 ): Achievement[] => {
+  const createAchievement = (
+    id: string,
+    name: string,
+    description: string,
+    criteria: string,
+    reward: string,
+    icon: string,
+    progressCount: number,
+    target: number
+  ): Achievement => {
+    const unlocked = progressCount >= target;
+    const progress = unlocked ? 100 : (progressCount / target * 100);
+    
+    return {
+      id,
+      name,
+      description,
+      criteria,
+      reward,
+      icon,
+      progressCount,
+      progress,
+      unlocked
+    };
+  };
+
   return [
-    {
-      id: "early-bird",
-      name: "Early Bird",
-      description: "Complete 5 tasks before 9 AM",
-      criteria: "Complete tasks early in the morning",
-      reward: "Morning Theme",
-      icon: "sun",
-      progressCount: earlyBirdTasksCount,
-      progress: earlyBirdTasksCount >= 5 ? 100 : (earlyBirdTasksCount / 5 * 100),
-      unlocked: earlyBirdTasksCount >= 5
-    },
-    {
-      id: "focus-master",
-      name: "Focus Master",
-      description: "Complete 10 high priority tasks",
-      criteria: "Complete high priority tasks",
-      reward: "Productivity Avatar",
-      icon: "target",
-      progressCount: highPriorityCompleted,
-      progress: highPriorityCompleted >= 10 ? 100 : (highPriorityCompleted / 10 * 100),
-      unlocked: highPriorityCompleted >= 10
-    },
-    {
-      id: "task-champion",
-      name: "Task Champion",
-      description: "Complete 25 tasks total",
-      criteria: "Complete a total of 25 tasks",
-      reward: "Champion Badge",
-      icon: "award",
-      progressCount: taskCompletedCount,
-      progress: taskCompletedCount >= 25 ? 100 : (taskCompletedCount / 25 * 100),
-      unlocked: taskCompletedCount >= 25
-    },
-    {
-      id: "streak-master",
-      name: "Streak Master",
-      description: "Maintain a 7-day streak on any habit",
-      criteria: "Maintain a habit streak for 7 days",
-      reward: "Gold Theme",
-      icon: "flame",
-      progressCount: longestStreak,
-      progress: longestStreak >= 7 ? 100 : (longestStreak / 7 * 100),
-      unlocked: longestStreak >= 7
-    },
-    {
-      id: "zen-mind",
-      name: "Zen Mind",
-      description: "Create 5 notes",
-      criteria: "Create at least 5 notes",
-      reward: "Zen Avatar",
-      icon: "feather",
-      progressCount: notesCount,
-      progress: notesCount >= 5 ? 100 : (notesCount / 5 * 100),
-      unlocked: notesCount >= 5
-    },
-    {
-      id: "habit-breaker",
-      name: "Habit Breaker",
-      description: "Successfully break 3 bad habits",
-      criteria: "Mark 3 habits as 'bad' and maintain streak",
-      reward: "Custom Theme Colors",
-      icon: "scissors",
-      progressCount: badHabitsWithStreak,
-      progress: badHabitsWithStreak >= 3 ? 100 : (badHabitsWithStreak / 3 * 100),
-      unlocked: badHabitsWithStreak >= 3
-    },
-    {
-      id: "consistency-king",
-      name: "Consistency King",
-      description: "Complete tasks for 14 consecutive days",
-      criteria: "Complete at least one task every day for 14 days",
-      reward: "Royal Crown Avatar",
-      icon: "crown",
-      progressCount: dailyStreak,
-      progress: dailyStreak >= 14 ? 100 : (dailyStreak / 14 * 100), 
-      unlocked: dailyStreak >= 14
-    },
-    {
-      id: "night-owl",
-      name: "Night Owl",
-      description: "Complete 10 tasks after 8 PM",
-      criteria: "Complete tasks in the evening",
-      reward: "Dark Theme",
-      icon: "moon",
-      progressCount: eveningTasksCount,
-      progress: eveningTasksCount >= 10 ? 100 : (eveningTasksCount / 10 * 100),
-      unlocked: eveningTasksCount >= 10
-    }
+    createAchievement(
+      "early-bird",
+      "Early Bird",
+      "Complete 5 tasks before 9 AM",
+      "Complete tasks early in the morning",
+      "Morning Theme",
+      "sun",
+      earlyBirdTasksCount,
+      5
+    ),
+    createAchievement(
+      "focus-master",
+      "Focus Master", 
+      "Complete 10 high priority tasks",
+      "Complete high priority tasks",
+      "Productivity Avatar",
+      "target",
+      highPriorityCompleted,
+      10
+    ),
+    createAchievement(
+      "task-champion",
+      "Task Champion",
+      "Complete 25 tasks total",
+      "Complete a total of 25 tasks",
+      "Champion Badge",
+      "award",
+      taskCompletedCount,
+      25
+    ),
+    createAchievement(
+      "streak-master",
+      "Streak Master",
+      "Maintain a 7-day streak on any habit",
+      "Maintain a habit streak for 7 days",
+      "Gold Theme",
+      "flame",
+      longestStreak,
+      7
+    ),
+    createAchievement(
+      "zen-mind",
+      "Zen Mind",
+      "Create 5 notes",
+      "Create at least 5 notes",
+      "Zen Avatar",
+      "feather",
+      notesCount,
+      5
+    ),
+    createAchievement(
+      "habit-breaker",
+      "Habit Breaker",
+      "Successfully break 3 bad habits",
+      "Mark 3 habits as 'bad' and maintain streak",
+      "Custom Theme Colors",
+      "scissors",
+      badHabitsWithStreak,
+      3
+    ),
+    createAchievement(
+      "consistency-king",
+      "Consistency King",
+      "Complete tasks for 14 consecutive days",
+      "Complete at least one task every day for 14 days",
+      "Royal Crown Avatar",
+      "crown",
+      dailyStreak,
+      14
+    ),
+    createAchievement(
+      "night-owl",
+      "Night Owl",
+      "Complete 10 tasks after 8 PM",
+      "Complete tasks in the evening",
+      "Dark Theme",
+      "moon",
+      eveningTasksCount,
+      10
+    )
   ];
 };
