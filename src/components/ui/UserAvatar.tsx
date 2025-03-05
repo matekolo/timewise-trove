@@ -107,6 +107,11 @@ const UserAvatar = ({ size = "md", className = "", showDisplayName = false }: Us
             ⚡
           </AvatarFallback>
         )}
+        {avatar === "crown" && (
+          <AvatarFallback className="bg-primary/10 text-lg">
+            👑
+          </AvatarFallback>
+        )}
         <AvatarImage src="" alt={displayName} />
       </Avatar>
 

@@ -46,7 +46,8 @@ const AppearanceSettings = ({
   const availableAvatars = [
     { id: "default", name: "Default", requiresAchievement: false },
     { id: "zen", name: "Zen Master", requiresAchievement: true, achievement: "zen-mind" },
-    { id: "productivity", name: "Productivity Pro", requiresAchievement: true, achievement: "focus-master" }
+    { id: "productivity", name: "Productivity Pro", requiresAchievement: true, achievement: "focus-master" },
+    { id: "crown", name: "Royal Crown", requiresAchievement: true, achievement: "consistency-king" }
   ];
   
   const isThemeAvailable = (themeId: string) => {
@@ -287,6 +288,7 @@ const AppearanceSettings = ({
                   {avatar.id === 'default' && <User className="h-8 w-8 text-primary/60" />}
                   {avatar.id === 'zen' && <div className="text-2xl">🧘</div>}
                   {avatar.id === 'productivity' && <div className="text-2xl">⚡</div>}
+                  {avatar.id === 'crown' && <div className="text-2xl">👑</div>}
                 </div>
                 {!isAvatarAvailable(avatar.id) && (
                   <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-full">
