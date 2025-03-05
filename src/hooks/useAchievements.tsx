@@ -149,44 +149,26 @@ export const useAchievements = () => {
     });
     
     const sortedDates = Array.from(datesWithCompletedTasks).sort();
+    console.log("Sorted dates with completed tasks:", sortedDates);
     
     if (sortedDates.length === 0) return 0;
     
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    let currentStreak = 1;
+    let maxStreak = 1;
     
-    let maxStreak = 0;
-    let currentStreak = 0;
-    
-    for (let i = sortedDates.length - 1; i >= 0; i--) {
-      const currentDateStr = sortedDates[i];
+    for (let i = 1; i < sortedDates.length; i++) {
+      const currentDate = new Date(sortedDates[i]);
+      const prevDate = new Date(sortedDates[i-1]);
       
-      if (i === sortedDates.length - 1) {
-        currentStreak = 1;
-        
-        const mostRecentDate = new Date(currentDateStr);
-        const dayDiff = Math.floor((today.getTime() - mostRecentDate.getTime()) / (1000 * 60 * 60 * 24));
-        
-        if (dayDiff > 1 && currentDateStr !== todayStr) {
-          break;
-        }
+      const diffTime = Math.abs(currentDate.getTime() - prevDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) {
+        currentStreak++;
+        maxStreak = Math.max(maxStreak, currentStreak);
       } else {
-        const currentDate = new Date(currentDateStr);
-        const prevDateStr = sortedDates[i + 1];
-        const prevDate = new Date(prevDateStr);
-        
-        const daysBetween = Math.floor(
-          (prevDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        
-        if (daysBetween === 1) {
-          currentStreak++;
-        } else {
-          break;
-        }
+        currentStreak = 1;
       }
-      
-      maxStreak = Math.max(maxStreak, currentStreak);
     }
     
     console.log("Calculated daily streak:", maxStreak, "from days:", sortedDates);
