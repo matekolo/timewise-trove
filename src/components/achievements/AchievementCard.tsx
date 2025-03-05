@@ -1,4 +1,3 @@
-
 import { motion } from "framer-motion";
 import { Trophy, Award, Star, Check, Lock, SunIcon, MoonIcon } from "lucide-react";
 import Tile from "@/components/ui/Tile";
@@ -66,6 +65,41 @@ const AchievementCard = ({
       ? achievement.progressCount 
       : Math.round(achievement.progress * milestone / 100);
 
+  // Get button attributes based on achievement state
+  const getButtonAttributes = () => {
+    if (isPending && achievement.id === pendingId) {
+      return {
+        variant: "default" as const,
+        disabled: true,
+        text: t("pleaseWait")
+      };
+    }
+    
+    if (achievement.claimed) {
+      return {
+        variant: "outline" as const,
+        disabled: true,
+        text: t("claimed")
+      };
+    }
+    
+    if (achievement.unlocked) {
+      return {
+        variant: "default" as const,
+        disabled: false,
+        text: t("claimReward")
+      };
+    }
+    
+    return {
+      variant: "outline" as const,
+      disabled: true,
+      text: t("locked")
+    };
+  };
+
+  const buttonAttrs = getButtonAttributes();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -126,19 +160,13 @@ const AchievementCard = ({
           </div>
           
           <Button
-            variant={achievement.unlocked ? (achievement.claimed ? "outline" : "default") : "outline"}
+            variant={buttonAttrs.variant}
             size="sm"
-            className={achievement.unlocked ? "" : "opacity-50"}
+            disabled={buttonAttrs.disabled}
             onClick={() => claimReward(achievement)}
-            disabled={isPending}
+            className={achievement.claimed ? "opacity-60" : ""}
           >
-            {isPending && achievement.id === pendingId ? 
-              t("pleaseWait") : 
-              achievement.claimed ? 
-                t("claimed") : 
-                achievement.unlocked ? 
-                  t("claimReward") : 
-                  t("locked")}
+            {buttonAttrs.text}
           </Button>
         </div>
       </Tile>
