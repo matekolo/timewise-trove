@@ -8,9 +8,9 @@ interface ChampionBadgeProps {
 
 const ChampionBadge = ({ className }: ChampionBadgeProps) => {
   return (
-    <Badge variant="success" className={`flex items-center gap-1 ${className}`}>
+    <Badge variant="success" className={`flex items-center gap-1 px-2 py-0.5 ${className}`}>
       <Award className="h-3 w-3" />
-      <span>Champion</span>
+      <span className="text-xs">Champion</span>
     </Badge>
   );
 };

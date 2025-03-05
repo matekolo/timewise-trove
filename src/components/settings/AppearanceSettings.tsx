@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -195,59 +196,52 @@ const AppearanceSettings = ({
           <p className="text-xs text-muted-foreground">
             Additional avatars are unlocked by earning achievements
           </p>
-          
-          <div className="pt-4">
-            <h3 className="text-sm font-semibold mb-3">Current Avatar</h3>
-            <div className="flex items-center gap-3">
-              <UserAvatar size="lg" />
-              <div>
-                <p className="text-sm font-medium">{displayName}</p>
-                <p className="text-xs text-muted-foreground">{
-                  settings.avatar === 'default' ? 'Default Avatar' :
-                  settings.avatar === 'zen' ? 'Zen Master' : 
-                  settings.avatar === 'productivity' ? 'Productivity Pro' :
-                  'Custom Avatar'
-                }</p>
-                {settings.showChampionBadge && (
-                  <ChampionBadge className="mt-1" />
-                )}
-              </div>
-            </div>
-          </div>
         </div>
       </Tile>
       
       <Tile title="Badges">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium">Champion Badge</h3>
-              <p className="text-xs text-muted-foreground">Show your Champion badge next to your avatar</p>
+        <div className="space-y-6">
+          <p className="text-sm text-muted-foreground mb-4">
+            Display badges next to your avatar to showcase your achievements
+          </p>
+          
+          {/* Champion Badge Option */}
+          <div className="space-y-4 border-b pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium">Champion Badge</h3>
+                <p className="text-xs text-muted-foreground">Show your Champion badge next to your avatar</p>
+              </div>
+              
+              <Switch
+                checked={settings.showChampionBadge || false}
+                onCheckedChange={(checked) => updateSetting('showChampionBadge', checked)}
+                disabled={!isChampionBadgeAvailable()}
+              />
             </div>
             
-            <Switch
-              checked={settings.showChampionBadge || false}
-              onCheckedChange={(checked) => updateSetting('showChampionBadge', checked)}
-              disabled={!isChampionBadgeAvailable()}
-            />
+            {!isChampionBadgeAvailable() && (
+              <div className="bg-muted/40 p-3 rounded-md flex items-center text-sm">
+                <Lock className="h-4 w-4 mr-2 text-muted-foreground" />
+                <span className="text-muted-foreground">Complete the Task Champion achievement to unlock</span>
+              </div>
+            )}
+            
+            {isChampionBadgeAvailable() && (
+              <div className="bg-muted/40 p-3 rounded-md">
+                <div className="flex items-center gap-2 mb-2">
+                  <ChampionBadge />
+                  <span className="text-sm font-medium">Preview</span>
+                </div>
+                <p className="text-xs text-muted-foreground">This badge will appear next to your avatar in the application</p>
+              </div>
+            )}
           </div>
           
-          {!isChampionBadgeAvailable() && (
-            <div className="bg-muted/40 p-3 rounded-md flex items-center text-sm">
-              <Lock className="h-4 w-4 mr-2 text-muted-foreground" />
-              <span className="text-muted-foreground">Complete the Task Champion achievement to unlock</span>
-            </div>
-          )}
-          
-          {isChampionBadgeAvailable() && (
-            <div className="bg-muted/40 p-3 rounded-md">
-              <div className="flex items-center gap-2 mb-2">
-                <ChampionBadge />
-                <span className="text-sm font-medium">Preview</span>
-              </div>
-              <p className="text-xs text-muted-foreground">This badge will appear next to your avatar in the application</p>
-            </div>
-          )}
+          {/* Future badges will be added here */}
+          <div className="bg-muted/20 p-4 rounded-md text-center">
+            <p className="text-sm text-muted-foreground">More badges will be available as you complete achievements</p>
+          </div>
         </div>
       </Tile>
     </div>
