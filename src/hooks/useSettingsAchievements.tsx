@@ -44,7 +44,8 @@ export const useSettingsAchievements = () => {
           { id: "night-owl", name: "Night Owl", reward: "Dark Theme" },
           { id: "zen-mind", name: "Zen Mind", reward: "Zen Avatar" },
           { id: "focus-master", name: "Focus Master", reward: "Productivity Avatar" },
-          { id: "streak-master", name: "Streak Master", reward: "Gold Theme" }
+          { id: "streak-master", name: "Streak Master", reward: "Gold Theme" },
+          { id: "task-champion", name: "Task Champion", reward: "Champion Badge" }
         ];
         
         // Map achievements to unlocked status

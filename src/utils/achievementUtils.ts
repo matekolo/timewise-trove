@@ -38,6 +38,12 @@ export const applyRewardEffect = (achievement: Achievement) => {
         themeColor: 'gold'
       }));
       break;
+    case "task-champion":
+      localStorage.setItem('user-settings', JSON.stringify({
+        ...currentSettings,
+        avatar: 'champion'
+      }));
+      break;
     default:
       break;
   }
