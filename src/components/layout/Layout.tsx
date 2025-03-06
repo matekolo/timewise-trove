@@ -1,11 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   LayoutGrid, 
   Activity, 
-  Calendar, 
   FileText, 
   BarChart, 
   Clock,
@@ -155,7 +153,6 @@ const Layout = () => {
     { path: "/habits", label: "Habits", icon: Activity },
     { path: "/planner", label: "Planner", icon: Clock },
     { path: "/notes", label: "Notes", icon: FileText },
-    { path: "/calendar", label: "Calendar", icon: Calendar },
     { path: "/reports", label: "Reports", icon: BarChart },
     { path: "/achievements", label: "Achievements", icon: Trophy },
     { path: "/settings", label: "Settings", icon: SettingsIcon },

@@ -9,7 +9,6 @@ import Dashboard from "./pages/Dashboard";
 import HabitTracker from "./pages/HabitTracker";
 import Planner from "./pages/Planner";
 import Notes from "./pages/Notes";
-import CalendarView from "./pages/CalendarView";
 import Reports from "./pages/Reports";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -40,7 +39,6 @@ const App = () => (
             <Route path="habits" element={<HabitTracker />} />
             <Route path="planner" element={<Planner />} />
             <Route path="notes" element={<Notes />} />
-            <Route path="calendar" element={<CalendarView />} />
             <Route path="reports" element={<Reports />} />
             <Route path="achievements" element={<Achievements />} />
             <Route path="settings" element={<Settings />} />

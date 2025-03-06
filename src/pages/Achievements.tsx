@@ -1,9 +1,8 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Settings, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAchievements } from "@/hooks/useAchievements";
 import AchievementCard from "@/components/achievements/AchievementCard";
@@ -11,7 +10,6 @@ import AchievementFilter from "@/components/achievements/AchievementFilter";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const Achievements = () => {
-  const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const { t } = useLanguage();
   const { 
@@ -99,16 +97,6 @@ const Achievements = () => {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex items-center gap-2"
-            onClick={() => navigate("/settings")}
-          >
-            <Settings className="h-4 w-4" />
-            <span>{t("settings")}</span>
-          </Button>
         </div>
       </div>
       
